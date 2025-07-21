@@ -121,6 +121,7 @@ export namespace Session {
       const queued = new Map<
         string,
         {
+          input: ChatInput
           message: MessageV2.User
           parts: MessageV2.Part[]
           processed: boolean
@@ -512,6 +513,7 @@ export namespace Session {
       return new Promise((resolve) => {
         const queue = state().queued.get(input.sessionID) ?? []
         queue.push({
+          input: input,
           message: userMsg,
           parts: userParts,
           processed: false,
@@ -733,6 +735,8 @@ export namespace Session {
             )
             item.processed = true
           }
+          assistantMsg.time.completed = Date.now()
+          await updateMessage(assistantMsg)
           Object.assign(assistantMsg, {
             id: Identifier.ascending("message"),
             role: "assistant",
@@ -795,6 +799,12 @@ export namespace Session {
       }),
     })
     const result = await processor.process(stream)
+    const queued = (state().queued.get(input.sessionID) ?? []).find((item) => !item.processed)
+    if (queued) {
+      queued.processed = true
+      return chat(queued.input)
+    }
+    state().queued.delete(input.sessionID)
     return result
   }
 
