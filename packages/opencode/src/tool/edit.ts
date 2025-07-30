@@ -2,6 +2,7 @@
 // https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-23-25.ts
 // https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/editCorrector.ts
 // https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-26-25.ts
+
 import { z } from "zod"
 import * as path from "path"
 import { Tool } from "./tool"
@@ -14,6 +15,7 @@ import { File } from "../file"
 import { Bus } from "../bus"
 import { FileTime } from "../file/time"
 import { Config } from "../config/config"
+import { Filesystem } from "../util/filesystem"
 
 export const EditTool = Tool.define("edit", {
   description: DESCRIPTION,
@@ -34,6 +36,9 @@ export const EditTool = Tool.define("edit", {
 
     const app = App.info()
     const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(app.path.cwd, params.filePath)
+    if (!Filesystem.contains(app.path.cwd, filepath)) {
+      throw new Error(`File ${filepath} is not in the current working directory`)
+    }
 
     const cfg = await Config.get()
     if (cfg.permission?.edit === "ask")
