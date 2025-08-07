@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode/internal/app"
 	"github.com/sst/opencode/internal/styles"
 	"github.com/sst/opencode/internal/theme"
@@ -42,6 +43,9 @@ func (cg *agentsContextGroup) GetChildEntries(
 
 	for _, agent := range *agents {
 		if query != "" && !strings.Contains(strings.ToLower(agent.Name), strings.ToLower(query)) {
+			continue
+		}
+		if agent.Mode == opencode.AgentModePrimary {
 			continue
 		}
 
