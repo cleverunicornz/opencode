@@ -21,9 +21,6 @@ import { GithubCommand } from "./cli/cmd/github"
 
 const cancel = new AbortController()
 
-try {
-} catch (e) {}
-
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
     e: e instanceof Error ? e.message : e,
@@ -68,7 +65,6 @@ const cli = yargs(hideBin(process.argv))
       args: process.argv.slice(2),
     })
   })
-  .usage("\n" + UI.logo())
   .command(McpCommand)
   .command(TuiCommand)
   .command(RunCommand)

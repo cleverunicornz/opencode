@@ -3,6 +3,7 @@ import { Bus } from "../../bus"
 import { Provider } from "../../provider/provider"
 import { Session } from "../../session"
 import { UI } from "../ui"
+import path from "path"
 import { cmd } from "./cmd"
 import { Flag } from "../../flag/flag"
 import { Config } from "../../config/config"
@@ -10,6 +11,9 @@ import { bootstrap } from "../bootstrap"
 import { MessageV2 } from "../../session/message-v2"
 import { Identifier } from "../../id/id"
 import { Agent } from "../../agent/agent"
+import { defer } from "../../util/defer"
+import { clone } from "remeda"
+import { Filesystem } from "../../util/filesystem"
 
 const TOOL: Record<string, [string, string]> = {
   todowrite: ["Todo", UI.Style.TEXT_WARNING_BOLD],
@@ -111,41 +115,93 @@ export const RunCommand = cmd({
         return await Provider.defaultModel()
       })()
 
-      function printEvent(color: string, type: string, title: string) {
-        UI.println(
-          color + `|`,
-          UI.Style.TEXT_NORMAL + UI.Style.TEXT_DIM + ` ${type.padEnd(7, " ")}`,
-          "",
-          UI.Style.TEXT_NORMAL + title,
-        )
-      }
-
-      let text = ""
       Bus.subscribe(MessageV2.Event.PartUpdated, async (evt) => {
         if (evt.properties.part.sessionID !== session.id) return
         if (evt.properties.part.messageID === messageID) return
-        const part = evt.properties.part
+        render(clone(evt.properties.part))
+      })
 
-        if (part.type === "tool" && part.state.status === "completed") {
-          const [tool, color] = TOOL[part.tool] ?? [part.tool, UI.Style.TEXT_INFO_BOLD]
-          const title =
-            part.state.title ||
-            (Object.keys(part.state.input).length > 0 ? JSON.stringify(part.state.input) : "Unknown")
-          printEvent(color, tool, title)
+      let current: MessageV2.Part | undefined
+
+      const queue = [] as MessageV2.Part[]
+      const buffer = [] as string[]
+      const stderr = Bun.stderr.writer()
+      let done = false
+      const loop = setInterval(async () => {
+        const item = buffer.shift()
+        if (!item) {
+          if (done) clearInterval(loop)
+          return
+        }
+        stderr.write(item)
+      }, 4)
+
+      const cwd = process.cwd()
+      async function render(part: MessageV2.Part) {
+        if (current && current.id !== part.id) {
+          queue.push(part)
+          return
         }
 
         if (part.type === "text") {
-          text = part.text
-
+          if (!current) {
+            buffer.push("\n", UI.Ansi.fg.white)
+          }
+          const index = current?.type === "text" ? current.text.length : 0
+          const substr = part.text.slice(index)
+          buffer.push(...substr)
+          current = part
           if (part.time?.end) {
-            UI.empty()
-            UI.println(UI.markdown(text))
-            UI.empty()
-            text = ""
-            return
+            buffer.push(UI.Ansi.reset, "\n\n")
+            current = undefined
           }
         }
-      })
+
+        if (part.type === "tool") {
+          current = part
+          if (part.state.status === "pending" && ["glob", "read", "list"].includes(part.tool)) {
+            buffer.push(UI.Ansi.fg.black, UI.Ansi.bg.blue)
+            buffer.push(" ", ...part.tool, " ")
+            buffer.push(UI.Ansi.reset)
+          }
+          if (part.state.status === "pending" && part.tool === "bash") {
+            buffer.push("\n", "$")
+          }
+          if (part.state.status === "running" && part.state.input) {
+            if (part.tool === "read") {
+              buffer.push(" ", UI.Ansi.style.dim)
+              const filepath = path.relative(cwd, part.state.input!.filePath)
+              buffer.push(filepath)
+            }
+            if (part.tool === "list") {
+              buffer.push(" ", UI.Ansi.style.dim)
+              const filepath = path.relative(cwd, part.state.input!.path) || "."
+              buffer.push(filepath)
+            }
+
+            if (part.tool === "bash") {
+              buffer.push(UI.Ansi.fg.white, " ", part.state.input.command.trim())
+            }
+            buffer.push(UI.Ansi.reset)
+          }
+          if (part.state.status === "completed") {
+            buffer.push("\n")
+
+            if (part.tool === "bash") {
+              buffer.push(part.state.output)
+            }
+
+            current = undefined
+          }
+        }
+
+        if (queue.length) {
+          if (!current) {
+            const next = queue.shift()!
+            return render(next)
+          }
+        }
+      }
 
       let errorMsg: string | undefined
       Bus.subscribe(Session.Event.Error, async (evt) => {
@@ -180,6 +236,7 @@ export const RunCommand = cmd({
           },
         ],
       })
+      done = true
 
       const isPiped = !process.stdout.isTTY
       if (isPiped) {

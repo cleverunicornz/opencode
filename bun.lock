@@ -24,7 +24,7 @@
     },
     "cloud/core": {
       "name": "@opencode/cloud-core",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "dependencies": {
         "@aws-sdk/client-sts": "3.782.0",
         "drizzle-orm": "0.41.0",
@@ -38,7 +38,7 @@
     },
     "cloud/function": {
       "name": "@opencode/cloud-function",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "dependencies": {
         "@ai-sdk/anthropic": "2.0.0",
         "@ai-sdk/openai": "2.0.2",
@@ -58,7 +58,7 @@
     },
     "cloud/web": {
       "name": "@opencode/cloud-web",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "dependencies": {
         "@kobalte/core": "0.13.9",
         "@openauthjs/solid": "0.0.0-20250322224806",
@@ -77,7 +77,7 @@
     },
     "packages/function": {
       "name": "@opencode/function",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "dependencies": {
         "@octokit/auth-app": "8.0.1",
         "@octokit/rest": "22.0.0",
@@ -92,7 +92,7 @@
     },
     "packages/opencode": {
       "name": "opencode",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "bin": {
         "opencode": "./bin/opencode",
       },
@@ -122,6 +122,7 @@
         "remeda": "catalog:",
         "tree-sitter": "0.22.4",
         "tree-sitter-bash": "0.23.3",
+        "tree-sitter-highlight": "1.0.1",
         "turndown": "7.2.0",
         "vscode-jsonrpc": "8.2.1",
         "web-tree-sitter": "0.22.6",
@@ -145,7 +146,7 @@
     },
     "packages/plugin": {
       "name": "@opencode-ai/plugin",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "dependencies": {
         "@opencode-ai/sdk": "workspace:*",
       },
@@ -157,7 +158,7 @@
     },
     "packages/sdk/js": {
       "name": "@opencode-ai/sdk",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.80.1",
         "@tsconfig/node22": "catalog:",
@@ -166,7 +167,7 @@
     },
     "packages/web": {
       "name": "@opencode/web",
-      "version": "0.5.2",
+      "version": "0.5.4",
       "dependencies": {
         "@astrojs/cloudflare": "12.6.3",
         "@astrojs/markdown-remark": "6.3.1",
@@ -2825,6 +2826,8 @@
     "tree-sitter": ["tree-sitter@0.22.4", "", { "dependencies": { "node-addon-api": "^8.3.0", "node-gyp-build": "^4.8.4" } }, "sha512-usbHZP9/oxNsUY65MQUsduGRqDHQOou1cagUSwjhoSYAmSahjQDAVsh9s+SlZkn8X8+O1FULRGwHu7AFP3kjzg=="],
 
     "tree-sitter-bash": ["tree-sitter-bash@0.23.3", "", { "dependencies": { "node-addon-api": "^8.2.1", "node-gyp-build": "^4.8.2" }, "peerDependencies": { "tree-sitter": "^0.21.1" }, "optionalPeers": ["tree-sitter"] }, "sha512-36cg/GQ2YmIbeiBeqeuh4fBJ6i4kgVouDaqTxqih5ysPag+zHufyIaxMOFeM8CeplwAK/Luj1o5XHqgdAfoCZg=="],
+
+    "tree-sitter-highlight": ["tree-sitter-highlight@1.0.1", "", {}, "sha512-PKoUNRI++rVXLsiYP5s3Ro5TnamZ0+7GMIzTGiga0i4YsyWlleei9cdBjX1GWCSAreOw+fnhqCQF5bHChnY8KQ=="],
 
     "treeverse": ["treeverse@3.0.0", "", {}, "sha512-gcANaAnd2QDZFmHFEOF4k7uc1J/6a6z3DJMd/QwEyxLoKGiptJRwid582r7QIsFlFMIZ3SnxfS52S4hm2DHkuQ=="],
 

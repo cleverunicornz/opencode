@@ -21,7 +21,7 @@ declare global {
 }
 
 if (typeof OPENCODE_TUI_PATH !== "undefined") {
-  await import(OPENCODE_TUI_PATH as string, {
+  import(OPENCODE_TUI_PATH as string, {
     with: { type: "file" },
   })
 }
