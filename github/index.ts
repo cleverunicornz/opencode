@@ -1,7 +1,7 @@
 import { $ } from "bun"
 import path from "node:path"
 import * as core from "@actions/core"
-import type { IssueCommentEvent, PullRequestReviewCommentEditedEvent } from "@octokit/webhooks-types"
+import type { IssueCommentEvent, PullRequestReviewCommentCreatedEvent } from "@octokit/webhooks-types"
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { spawn } from "node:child_process"
 import type { GitHubIssue, GitHubPullRequest, IssueQueryResponse, PullRequestQueryResponse } from "./src/types"
@@ -19,8 +19,6 @@ let exitCode = 0
 type PromptFiles = Awaited<ReturnType<typeof getUserPrompt>>["promptFiles"]
 
 try {
-  // TODO
-  console.log("!@#!@#! Context", Context.state().context)
   Context.assertEventName("issue_comment", "pull_request_review_comment")
   assertPayloadKeyword()
   await assertOpencodeConnected()
@@ -131,7 +129,7 @@ function createOpencode() {
 }
 
 function assertPayloadKeyword() {
-  const payload = Context.payload<IssueCommentEvent>()
+  const payload = Context.payload<IssueCommentEvent | PullRequestReviewCommentCreatedEvent>()
   const body = payload.comment.body.trim()
   if (!body.match(/(?:^|\s)(?:\/opencode|\/oc)(?=$|\s)/)) {
     throw new Error("Comments must mention `/opencode` or `/oc`")
@@ -179,11 +177,18 @@ function useEnvGithubToken() {
   return process.env["TOKEN"]
 }
 
+function isEventPullRequestReviewComment() {
+  return Context.eventName() === "pull_request_review_comment"
+}
+
 function isPullRequest() {
+  if (isEventPullRequestReviewComment()) return true
   return Boolean(Context.payload<IssueCommentEvent>().issue.pull_request)
 }
 
 function useIssueId() {
+  if (isEventPullRequestReviewComment())
+    return Context.payload<PullRequestReviewCommentCreatedEvent>().pull_request.number
   return Context.payload<IssueCommentEvent>().issue.number
 }
 
@@ -204,7 +209,7 @@ async function createComment() {
 
 async function getUserPrompt() {
   let prompt = (() => {
-    const body = Context.payload<IssueCommentEvent>().comment.body.trim()
+    const body = Context.payload<IssueCommentEvent | PullRequestReviewCommentCreatedEvent>().comment.body.trim()
     if (body === "/opencode" || body === "/oc") return "Summarize this thread"
     if (body.includes("/opencode") || body.includes("/oc")) return body
     throw new Error("Comments must mention `/opencode` or `/oc`")
@@ -355,7 +360,9 @@ async function summarize(response: string) {
   try {
     return await chat(`Summarize the following in less than 40 characters:\n\n${response}`)
   } catch (e) {
-    return `Fix issue: ${Context.payload<IssueCommentEvent>().issue.title}`
+    return isEventPullRequestReviewComment()
+      ? `Fix issue: ${Context.payload<PullRequestReviewCommentCreatedEvent>().pull_request.title}`
+      : `Fix issue: ${Context.payload<IssueCommentEvent>().issue.title}`
   }
 }
 
@@ -739,8 +746,8 @@ ${part}
   const pr = result.repository.pullRequest
   if (!pr) throw new Error(`PR #${useIssueId()} not found`)
 
-  if (Context.eventName() === "pull_request_review_comment_created") {
-    const comment = Context.payload<PullRequestReviewCommentEditedEvent>().comment
+  if (isEventPullRequestReviewComment()) {
+    const comment = Context.payload<PullRequestReviewCommentCreatedEvent>().comment
     pr.reviewThreads.nodes = pr.reviewThreads.nodes.filter((t) =>
       t.comments.nodes.some((c) => c.id === comment.node_id),
     )
