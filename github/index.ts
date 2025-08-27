@@ -635,6 +635,8 @@ async function fetchPR() {
   //  - include all review comments that are
   const part = isEventPullRequestReviewComment()
     ? `
+      comments(last: 0) { nodes { }}
+      reviews(last: 0) { nodes { }}
       reviewThreads(last: 100) {
         nodes {
           id
@@ -654,7 +656,7 @@ async function fetchPR() {
         }
       }`
     : `
-      comments(first: 100) {
+      comments(last: 100) {
         nodes {
           id
           databaseId
@@ -688,7 +690,7 @@ async function fetchPR() {
           }
         }
       }
-      reviews(first: 100) {
+      reviews(last: 100) {
         nodes {
           id
           databaseId
@@ -757,6 +759,9 @@ ${part}
     )
     if (pr.reviewThreads.nodes.length === 0)
       throw new Error(`Review thread for comment ${triggerComment.node_id} not found`)
+    // fix types b/c "reviews" and "comments" should be always defined
+    pr.reviews = { nodes: [] }
+    pr.comments = { nodes: [] }
   } else {
     const ignoreReviewIds = new Set<string>()
     pr.reviewThreads.nodes = pr.reviewThreads.nodes.filter((t) => {

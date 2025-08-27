@@ -74,7 +74,7 @@ export type GitHubPullRequest = {
   comments: {
     nodes: GitHubComment[]
   }
-  reviews?: {
+  reviews: {
     nodes: GitHubReview[]
   }
   reviewThreads: {
