@@ -40,7 +40,7 @@ runs:
 
     - name: Run opencode
       shell: bash
-      run: bun ${GITHUB_ACTION_PATH}/index.ts
+      run: bun ${GITHUB_ACTION_PATH}/run.ts
       env:
         MODEL: ${{ inputs.model }}
         PROMPT: ${{ inputs.prompt }}

@@ -1,3 +1,5 @@
+import { $ } from "bun"
+import * as core from "@actions/core"
 import { Octokit } from "@octokit/rest"
 import { graphql } from "@octokit/graphql"
 import { lazy } from "./lazy"
@@ -15,6 +17,22 @@ export namespace GitHub {
       headers: { authorization: `token ${await Auth.token()}` },
     }),
   )
+
+  export async function wrap(fn: () => Promise<void>) {
+    try {
+      await fn()
+      process.exit(0)
+    } catch (e: any) {
+      console.error(e)
+      let msg = e
+      if (e instanceof $.ShellError) msg = e.stderr.toString()
+      else if (e instanceof Error) msg = e.message
+      core.setFailed(msg)
+      // Also output the clean error message for the action to capture
+      //core.setOutput("prepare_error", e.message);
+      process.exit(1)
+    }
+  }
 
   export function runUrl() {
     const runId = process.env["GITHUB_RUN_ID"]

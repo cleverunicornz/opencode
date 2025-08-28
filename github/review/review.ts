@@ -1,6 +1,5 @@
 import { $ } from "bun"
 import os from "node:os"
-import * as core from "@actions/core"
 import type { PullRequestReviewCommentEditedEvent } from "@octokit/webhooks-types"
 import { Context } from "../src/context"
 import { Auth } from "../src/auth"
@@ -15,10 +14,9 @@ type Finding = {
   related?: string[]
 }
 
-try {
+await GitHub.wrap(async () => {
   switch (Context.eventName()) {
-    case "pull_request_opened":
-    case "pull_request_synchronize":
+    case "pull_request":
       await review()
       break
     // TODO
@@ -28,17 +26,7 @@ try {
     default:
       throw new Error(`Unsupported event type: ${Context.eventName()}`)
   }
-  process.exit(0)
-} catch (e: any) {
-  console.error(e)
-  let msg = e
-  if (e instanceof $.ShellError) msg = e.stderr.toString()
-  else if (e instanceof Error) msg = e.message
-  core.setFailed(msg)
-  // Also output the clean error message for the action to capture
-  //core.setOutput("prepare_error", e.message);
-  process.exit(1)
-}
+})
 
 export async function review() {
   try {
