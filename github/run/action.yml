@@ -28,7 +28,7 @@ runs:
       shell: bash
       run: curl -fsSL https://opencode.ai/install | bash
       env:
-        VERSION=0.5.28 
+        VERSION: 0.5.28 
 
     - name: Check opencode version
       shell: bash
