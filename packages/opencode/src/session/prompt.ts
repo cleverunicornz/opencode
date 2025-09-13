@@ -66,10 +66,7 @@ export namespace SessionPrompt {
       const queued = new Map<
         string,
         {
-          input: PromptInput
-          message: MessageV2.User
-          parts: MessageV2.Part[]
-          processed: boolean
+          messageID: string
           callback: (input: MessageV2.WithParts) => void
         }[]
       >()
@@ -148,10 +145,7 @@ export namespace SessionPrompt {
       return new Promise((resolve) => {
         const queue = state().queued.get(input.sessionID) ?? []
         queue.push({
-          input: input,
-          message: userMsg.info,
-          parts: userMsg.parts,
-          processed: false,
+          messageID: userMsg.info.id,
           callback: resolve,
         })
         state().queued.set(input.sessionID, queue)
@@ -164,16 +158,6 @@ export namespace SessionPrompt {
     }).then((x) => Provider.getModel(x.providerID, x.modelID))
     const outputLimit = Math.min(model.info.limit.output, OUTPUT_TOKEN_MAX) || OUTPUT_TOKEN_MAX
     using abort = lock(input.sessionID)
-
-    /*
-    ensureTitle({
-      session,
-      history: msgs,
-      message: userMsg,
-      providerID: model.providerID,
-      modelID: model.info.id,
-    })
-    */
 
     const system = await resolveSystemPrompt({
       providerID: model.providerID,
@@ -188,11 +172,7 @@ export namespace SessionPrompt {
       providerID: model.providerID,
       agent: agent.name,
       system,
-    })
-
-    await using _ = defer(async () => {
-      if (processor.message.time.completed) return
-      await Session.removeMessage(input.sessionID, processor.message.id)
+      abort: abort.signal,
     })
 
     const tools = await resolveTools({
@@ -224,7 +204,7 @@ export namespace SessionPrompt {
       },
     )
 
-    let pointer = 0
+    let step = 0
     while (true) {
       const msgs: MessageV2.WithParts[] = pipe(
         await getMessages({
@@ -234,49 +214,24 @@ export namespace SessionPrompt {
         }),
         (messages) => insertReminders({ messages, agent }),
       )
+      if (step === 0)
+        ensureTitle({
+          session,
+          history: msgs,
+          message: userMsg,
+          providerID: model.providerID,
+          modelID: model.info.id,
+        })
+      step++
+      await processor.next()
+      await using _ = defer(async () => {
+        await processor.end()
+      })
       const stream = streamText({
-        async prepareStep({ messages, steps }) {
-          const step = steps.at(-1)
-          if (
-            step &&
-            SessionCompaction.isOverflow({
-              tokens: Session.getUsage(model.info, step.usage, step.providerMetadata).tokens,
-              model: model.info,
-            }) &&
-            false
-          ) {
-            await processor.end()
-            const msg = await SessionCompaction.run({
-              sessionID: input.sessionID,
-              providerID: model.providerID,
-              modelID: model.info.id,
-            })
-            await processor.next()
-            pointer = messages.length
-            messages.push(...MessageV2.toModelMessage([msg]))
-          }
-
-          // Add queued messages to the stream
-          const queue = (state().queued.get(input.sessionID) ?? []).filter((x) => !x.processed)
-          if (queue.length) {
-            await processor.end()
-            for (const item of queue) {
-              if (item.processed) continue
-              messages.push(
-                ...MessageV2.toModelMessage([
-                  {
-                    info: item.message,
-                    parts: item.parts,
-                  },
-                ]),
-              )
-              item.processed = true
-            }
-            await processor.next()
-          }
-          return {
-            messages: messages.slice(pointer),
-          }
+        onError(error) {
+          log.error("stream error", {
+            error,
+          })
         },
         async experimental_repairToolCall(input) {
           const lower = input.toolCall.toolName.toLowerCase()
@@ -343,16 +298,18 @@ export namespace SessionPrompt {
       })
       const result = await processor.process(stream)
       await processor.end()
-      if ((await stream.finishReason) === "tool-calls") {
-        await processor.next()
-        continue
-      }
 
       const queued = state().queued.get(input.sessionID) ?? []
-      const unprocessed = queued.find((x) => !x.processed)
-      if (unprocessed) {
-        unprocessed.processed = true
-        continue
+
+      if (!result.blocked && !result.info.error) {
+        if ((await stream.finishReason) === "tool-calls") {
+          continue
+        }
+
+        const unprocessed = queued.filter((x) => x.messageID > result.info.id)
+        if (unprocessed.length) {
+          continue
+        }
       }
       for (const item of queued) {
         item.callback(result)
@@ -797,10 +754,11 @@ export namespace SessionPrompt {
     model: ModelsDev.Model
     system: string[]
     agent: string
+    abort: AbortSignal
   }) {
     const toolcalls: Record<string, MessageV2.ToolPart> = {}
     let snapshot: string | undefined
-    let shouldStop = false
+    let blocked = false
 
     async function createMessage() {
       const msg: MessageV2.Info = {
@@ -830,33 +788,39 @@ export namespace SessionPrompt {
       return msg
     }
 
-    let assistantMsg = await createMessage()
+    let assistantMsg: MessageV2.Assistant | undefined
 
     const result = {
       async end() {
         if (assistantMsg) {
           assistantMsg.time.completed = Date.now()
           await Session.updateMessage(assistantMsg)
+          assistantMsg = undefined
         }
       },
       async next() {
+        if (assistantMsg) {
+          throw new Error("end previous assistant message first")
+        }
         assistantMsg = await createMessage()
+        return assistantMsg
       },
       get message() {
+        if (!assistantMsg) throw new Error("call next() first before accessing message")
         return assistantMsg
       },
       partFromToolCall(toolCallID: string) {
         return toolcalls[toolCallID]
       },
-      getShouldStop() {
-        return shouldStop
-      },
       async process(stream: StreamTextResult<Record<string, AITool>, never>) {
+        log.info("process")
+        if (!assistantMsg) throw new Error("call next() first before processing")
         try {
           let currentText: MessageV2.TextPart | undefined
           let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
 
           for await (const value of stream.fullStream) {
+            input.abort.throwIfAborted()
             log.info("part", {
               type: value.type,
             })
@@ -966,9 +930,6 @@ export namespace SessionPrompt {
               case "tool-error": {
                 const match = toolcalls[value.toolCallId]
                 if (match && match.state.status === "running") {
-                  if (value.error instanceof Permission.RejectedError) {
-                    shouldStop = true
-                  }
                   await Session.updatePart({
                     ...match,
                     state: {
@@ -982,6 +943,9 @@ export namespace SessionPrompt {
                       },
                     },
                   })
+                  if (value.error instanceof Permission.RejectedError) {
+                    blocked = true
+                  }
                   delete toolcalls[value.toolCallId]
                 }
                 break
@@ -1073,7 +1037,7 @@ export namespace SessionPrompt {
             }
           }
         } catch (e) {
-          log.error("", {
+          log.error("process", {
             error: e,
           })
           switch (true) {
@@ -1127,7 +1091,7 @@ export namespace SessionPrompt {
         }
         assistantMsg.time.completed = Date.now()
         await Session.updateMessage(assistantMsg)
-        return { info: assistantMsg, parts: p }
+        return { info: assistantMsg, parts: p, blocked }
       },
     }
     return result
