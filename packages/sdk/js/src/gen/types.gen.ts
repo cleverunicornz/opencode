@@ -624,6 +624,7 @@ export type AssistantMessage = {
     cwd: string
     root: string
   }
+  finish?: string
   summary?: boolean
   cost: number
   tokens: {

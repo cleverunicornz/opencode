@@ -1080,6 +1080,7 @@ export namespace SessionPrompt {
 
               case "finish":
                 assistantMsg.time.completed = Date.now()
+                assistantMsg.finish = value.finishReason
                 await Session.updateMessage(assistantMsg)
                 break
 

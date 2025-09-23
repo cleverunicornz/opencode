@@ -232,10 +232,15 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[] }) {
           borderColor={Theme.backgroundElement}
         >
           <text fg={local.agent.color(props.message.mode)}>{Locale.titlecase(props.message.mode)}</text>
-          <text fg={Theme.textMuted}>
-            {props.message.providerID}/{props.message.modelID}
+          <Shimmer text={`${props.message.providerID}/${props.message.modelID}`} color={Theme.text} />
+        </box>
+      </Show>
+      <Show when={props.message.time.completed && props.message.finish === "stop"}>
+        <box paddingLeft={3}>
+          <text marginTop={1}>
+            <span style={{ fg: local.agent.color(props.message.mode) }}>{Locale.titlecase(props.message.mode)}</span>{" "}
+            <span style={{ fg: Theme.textMuted }}>{props.message.providerID + "/" + props.message.modelID}</span>
           </text>
-          <Shimmer text={props.message.summary ? "Compacting..." : "Generating..."} color={Theme.text} />
         </box>
       </Show>
     </>
@@ -264,19 +269,9 @@ function resize(el: BoxRenderable) {
 }
 
 function TextPart(props: { part: TextPart; message: AssistantMessage }) {
-  const sync = useSync()
-  const agent = createMemo(() => sync.data.agent.find((x) => x.name === props.message.mode)!)
-  const local = useLocal()
-
   return (
     <box paddingLeft={3} marginTop={1} flexShrink={0}>
       <text>{props.part.text.trim()}</text>
-      <Show when={props.message.time.completed}>
-        <text>
-          <span style={{ fg: local.agent.color(agent().name) }}>{Locale.titlecase(agent().name)}</span>{" "}
-          <span style={{ fg: Theme.textMuted }}>{props.message.providerID + "/" + props.message.modelID}</span>
-        </text>
-      </Show>
     </box>
   )
 }
