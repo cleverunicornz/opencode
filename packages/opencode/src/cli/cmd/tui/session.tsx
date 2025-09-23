@@ -30,7 +30,6 @@ import { useCommandDialog } from "./component/dialog-command"
 export function Session() {
   const route = useRouteData("session")
   const sync = useSync()
-  const command = useCommandDialog()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[route.sessionID] ?? [])
@@ -50,19 +49,20 @@ export function Session() {
       })
   })
 
+  const command = useCommandDialog()
   command.register(() => [
     {
       title: "Share session",
       value: "session.share",
       disabled: !session().share?.url,
       category: "Session",
-      onSelect: (ctx) => {
+      onSelect: (dialog) => {
         sdk.session.share({
           path: {
             id: route.sessionID,
           },
         })
-        ctx.clear()
+        dialog.clear()
       },
     },
     {
@@ -70,13 +70,13 @@ export function Session() {
       value: "session.unshare",
       disabled: !!session().share?.url,
       category: "Session",
-      onSelect: (ctx) => {
+      onSelect: (dialog) => {
         sdk.session.unshare({
           path: {
             id: route.sessionID,
           },
         })
-        ctx.clear()
+        dialog.clear()
       },
     },
   ])
