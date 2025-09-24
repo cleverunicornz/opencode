@@ -26,16 +26,7 @@ function init() {
 
   useKeyboard((evt) => {
     for (const option of options()) {
-      if (
-        option.keybind &&
-        Keybind.match(option.keybind, {
-          ctrl: evt.ctrl,
-          name: evt.name,
-          shift: evt.shift,
-          leader: keybind.leader,
-          option: evt.option,
-        })
-      ) {
+      if (option.keybind && keybind.match(option.keybind, evt)) {
         option.onSelect?.(dialog)
         return
       }
@@ -75,9 +66,10 @@ export function useCommandDialog() {
 export function CommandProvider(props: ParentProps) {
   const value = init()
   const dialog = useDialog()
+  const keybind = useKeybind()
 
   useKeyboard((evt) => {
-    if (evt.name === "p" && evt.ctrl) {
+    if (keybind.match("command_list", evt)) {
       dialog.replace(() => <DialogCommand options={value.options} />)
       return
     }

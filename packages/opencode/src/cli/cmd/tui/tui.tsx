@@ -145,6 +145,7 @@ function App() {
     {
       title: "Switch session",
       value: "session.list",
+      keybind: "session_list",
       category: "Session",
       onSelect: () => {
         dialog.replace(() => <DialogSessionList />)
@@ -153,6 +154,7 @@ function App() {
     {
       title: "New session",
       value: "session.new",
+      keybind: "session_new",
       category: "Session",
       onSelect: () => {
         route.navigate({
@@ -173,6 +175,7 @@ function App() {
     {
       title: "Switch agent",
       value: "agent.list",
+      keybind: "agent_list",
       category: "Agent",
       onSelect: () => {
         dialog.replace(() => <DialogAgent />)

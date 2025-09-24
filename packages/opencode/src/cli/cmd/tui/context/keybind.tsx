@@ -49,7 +49,10 @@ export function init() {
         option: evt.option,
       }
       for (const key of keybind) {
-        if (Keybind.match(key, parsed)) return true
+        if (Keybind.match(key, parsed)) {
+          setStore("leader", false)
+          return true
+        }
       }
     },
     print(key: keyof KeybindsConfig) {
