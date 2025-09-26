@@ -17,6 +17,8 @@ import { CommandProvider, useCommandDialog } from "./component/dialog-command"
 import { DialogAgent } from "./component/dialog-agent"
 import { DialogSessionList } from "./component/dialog-session-list"
 import { KeybindProvider, useKeybind } from "./context/keybind"
+import { Config } from "../../../config/config"
+import { Instance } from "../../../project/instance"
 
 export const TuiCommand = cmd({
   command: "$0 [project]",
@@ -63,6 +65,10 @@ export const TuiCommand = cmd({
         default: "127.0.0.1",
       }),
   handler: async () => {
+    await Instance.provide({
+      directory: process.cwd(),
+      fn: () => Config.get(),
+    })
     await render(
       () => {
         return (
