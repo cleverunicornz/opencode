@@ -81,6 +81,13 @@
     line-height: 200%;
   }
 
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    transition: background-color 5000000s ease-in-out 0s;
+  }
+
   [data-component="container"] {
     max-width: 67.5rem;
     margin: 0 auto;
@@ -641,6 +648,7 @@
         @media (max-width: 30rem) {
           padding-bottom: 80px;
         }
+
       }
 
       input:focus {
