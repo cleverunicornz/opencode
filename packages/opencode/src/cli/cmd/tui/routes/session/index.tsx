@@ -177,7 +177,8 @@ export function Session() {
       value: "session.redo",
       keybind: "messages_redo",
       category: "Session",
-      onSelect: () => {
+      onSelect: (dialog) => {
+        dialog.clear()
         const messageID = session().revert?.messageID
         if (!messageID) return
         const message = messages().find((x) => x.role === "user" && x.id > messageID)
@@ -295,7 +296,7 @@ export function Session() {
                 </Match>
                 <Match when={message.role === "user"}>
                   <UserMessage
-                    onMouseDown={() =>
+                    onMouseUp={() =>
                       dialog.replace(() => <DialogMessage messageID={message.id} sessionID={route.sessionID} />)
                     }
                     message={message as UserMessage}
@@ -327,6 +328,7 @@ export function Session() {
         <box flexShrink={0}>
           <Prompt
             ref={(r) => (prompt = r)}
+            disabled={permissions().length > 0}
             onSubmit={() => {
               toBottom()
             }}
@@ -347,7 +349,7 @@ const MIME_BADGE: Record<string, string> = {
   "application/pdf": "pdf",
 }
 
-function UserMessage(props: { message: UserMessage; parts: Part[]; onMouseDown: () => void }) {
+function UserMessage(props: { message: UserMessage; parts: Part[]; onMouseUp: () => void }) {
   const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
   const files = createMemo(() => props.parts.flatMap((x) => (x.type === "file" ? [x] : [])))
   const sync = useSync()
@@ -361,7 +363,7 @@ function UserMessage(props: { message: UserMessage; parts: Part[]; onMouseDown: 
       onMouseOut={() => {
         setHover(false)
       }}
-      onMouseDown={props.onMouseDown}
+      onMouseUp={props.onMouseUp}
       border={["left"]}
       paddingTop={1}
       paddingBottom={1}

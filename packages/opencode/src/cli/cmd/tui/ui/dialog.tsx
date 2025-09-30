@@ -99,7 +99,7 @@ function init() {
       refocus()
     },
     replace(input: any, onClose?: () => void) {
-      focus = renderer.currentFocusedRenderable
+      if (store.stack.length === 0) focus = renderer.currentFocusedRenderable
       for (const item of store.stack) {
         if (item.onClose) item.onClose()
       }

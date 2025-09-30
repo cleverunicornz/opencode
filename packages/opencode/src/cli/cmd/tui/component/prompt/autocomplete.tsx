@@ -224,15 +224,17 @@ export function Autocomplete(props: {
           if (e.name === "escape") hide()
           if (e.name === "return") select()
         }
-        if (!store.visible && e.name === "@") {
-          const last = props.value.at(-1)
-          if (last === " " || last === undefined) {
-            show("@")
+        if (!store.visible) {
+          if (e.name === "@") {
+            const last = props.value.at(-1)
+            if (last === " " || last === undefined) {
+              show("@")
+            }
           }
-        }
 
-        if (!store.visible && e.name === "/") {
-          if (props.input().cursorPosition === 0) show("/")
+          if (e.name === "/") {
+            if (props.input().cursorPosition === 0) show("/")
+          }
         }
       },
     })

@@ -33,7 +33,6 @@ export function Prompt(props: PromptProps) {
   let anchor: BoxRenderable
   let autocomplete: AutocompleteRef
 
-
   const keybind = useKeybind()
   const local = useLocal()
   const sdk = useSDK()
@@ -41,6 +40,11 @@ export function Prompt(props: PromptProps) {
   const sync = useSync()
   const status = createMemo(() => (props.sessionID ? sync.session.status(props.sessionID) : "idle"))
   const history = usePromptHistory()
+
+  createEffect(() => {
+    if (props.disabled) input.cursorColor = Theme.backgroundElement
+    if (!props.disabled) input.cursorColor = Theme.primary
+  })
 
   const [store, setStore] = createStore<PromptInfo>({
     input: "",
@@ -129,6 +133,10 @@ export function Prompt(props: PromptProps) {
               }}
               value={store.input}
               onKeyDown={async (e) => {
+                if (props.disabled) {
+                  e.preventDefault()
+                  return
+                }
                 autocomplete.onKeyDown(e)
                 if (!autocomplete.visible) {
                   if (e.name === "up" || e.name === "down") {
@@ -166,6 +174,7 @@ export function Prompt(props: PromptProps) {
                 }, 0)
               }}
               onSubmit={async () => {
+                if (props.disabled) return
                 if (autocomplete.visible) return
                 if (!store.input) return
                 const sessionID = props.sessionID
