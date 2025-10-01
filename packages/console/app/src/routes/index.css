@@ -33,6 +33,7 @@
   @media (prefers-color-scheme: dark) {
     --color-background: hsl(0, 9%, 7%);
     --color-background-weak: hsl(0, 6%, 10%);
+    --color-background-weak-hover: hsl(0, 6%, 15%);
     --color-background-strong: hsl(0, 15%, 94%);
     --color-background-strong-hover: hsl(0, 15%, 97%);
     --color-background-interactive: hsl(62, 100%, 90%);
@@ -405,7 +406,9 @@
           white-space: nowrap;
           vertical-align: middle;
 
-
+          @media (prefers-color-scheme: dark) {
+            color: var(--color-text-weak);
+          }
 
           @media (max-width: 35rem) {
             width: calc(100% - 40px) !important;
@@ -421,6 +424,11 @@
 
       [data-slot="command"]:hover {
         background: var(--color-background-weak-hover);
+
+        @media (prefers-color-scheme: dark) {
+          color: var(--color-text-weak);
+          background: var(--color-background-weak-hover);
+        }
       }
     }
   }
@@ -775,6 +783,11 @@
         /* Tailwind-style ring */
         box-shadow: 0 0 0 3px var(--color-background-interactive);
         /* mimics "ring-2 ring-blue-600/50" */
+
+        @media (prefers-color-scheme: dark) {
+          box-shadow: none;
+          border: 1px solid var(--color-background-interactive)
+        }
       }
 
       button {
