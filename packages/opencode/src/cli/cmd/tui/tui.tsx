@@ -73,7 +73,7 @@ export const TuiCommand = cmd({
       fn: () => Config.get(),
     })
 
-    const worker = new Worker(import.meta.resolve("./worker.ts"))
+    const worker = new Worker("./src/cli/cmd/tui/worker.ts")
     worker.onerror = console.log
     worker.onmessageerror = console.log
     const url = await new Promise<string>((resolve) => {
