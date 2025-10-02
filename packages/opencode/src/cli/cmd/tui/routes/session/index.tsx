@@ -790,7 +790,7 @@ ToolRegistry.register<typeof EditTool>({
     const code = createMemo(() => {
       if (!props.metadata.diff) return ""
       const text = props.metadata.diff.split("\n").slice(5).join("\n")
-      return text
+      return text.trim()
     })
     return (
       <>
