@@ -78,6 +78,7 @@ function App(props: { onExit: () => void }) {
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
+  renderer.disableStdoutInterception()
   const dialog = useDialog()
   const local = useLocal()
   const command = useCommandDialog()

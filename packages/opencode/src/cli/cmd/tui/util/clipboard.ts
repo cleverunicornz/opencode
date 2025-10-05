@@ -51,15 +51,6 @@ export namespace Clipboard {
   const getCopyMethod = lazy(() => {
     const os = platform()
 
-    if (process.env["TMUX"]) {
-      console.log("clipboard: using tmux with OSC 52")
-      return async (text: string) => {
-        const base64 = Buffer.from(text).toString("base64")
-        const osc52 = `\x1b]52;c;${base64}\x07`
-        process.stdout.write(osc52)
-      }
-    }
-
     if (os === "darwin") {
       console.log("clipboard: using osascript")
       return async (text: string) => {
@@ -114,13 +105,16 @@ export namespace Clipboard {
       }
     }
 
-    console.log("clipboard: using clipboardy fallback")
+    console.log("clipboard: no native support")
     return async (text: string) => {
       await clipboardy.write(text).catch(() => {})
     }
   })
 
   export async function copy(text: string): Promise<void> {
+    const base64 = Buffer.from(text).toString("base64")
+    const osc52 = `\x1b]52;c;${base64}\x07`
+    process.stdout.write(osc52)
     await getCopyMethod()(text)
   }
 }
