@@ -94,7 +94,6 @@ const pkgjsons = await Array.fromAsync(
   }),
 ).then((arr) => arr.filter((x) => !x.includes("node_modules") && !x.includes("dist")))
 
-const tree = await $`git add . && git write-tree`.text().then((x) => x.trim())
 for (const file of pkgjsons) {
   let pkg = await Bun.file(file).text()
   pkg = pkg.replaceAll(/"version": "[^"]+"/g, `"version": "${version}"`)
@@ -123,15 +122,4 @@ if (!snapshot) {
   await $`git push origin HEAD --tags --no-verify --force`
 
   await $`gh release create v${version} --title "v${version}" --notes ${notes.join("\n") ?? "No notable changes"} ./packages/opencode/dist/*.zip`
-}
-if (snapshot && false) {
-  await $`git checkout -b snapshot-${version}`
-  await $`git commit --allow-empty -m "Snapshot release v${version}"`
-  await $`git tag v${version}`
-  await $`git push origin v${version} --no-verify`
-  await $`git checkout dev`
-  await $`git branch -D snapshot-${version}`
-  for (const file of pkgjsons) {
-    await $`git checkout ${tree} ${file}`
-  }
 }
