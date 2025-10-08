@@ -1,13 +1,11 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, For, Show, createResource, Switch, Match } from "solid-js"
+import { createMemo, For, Show, Switch, Match } from "solid-js"
 import { Theme } from "../../context/theme"
-import { useSDK } from "../../context/sdk"
 import { Locale } from "@/util/locale"
 import type { AssistantMessage } from "@opencode-ai/sdk"
 
 export function Sidebar(props: { sessionID: string }) {
   const sync = useSync()
-  const sdk = useSDK()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
@@ -24,11 +22,6 @@ export function Sidebar(props: { sessionID: string }) {
       }
     }
     return [...result.values()].sort((a, b) => a.length - b.length)
-  })
-
-  const [mcp] = createResource(async () => {
-    const result = await sdk.mcp.status()
-    return result.data
   })
 
   const cost = createMemo(() => {
@@ -70,39 +63,41 @@ export function Sidebar(props: { sessionID: string }) {
           <text fg={Theme.textMuted}>{context()?.percentage ?? 0}% used</text>
           <text fg={Theme.textMuted}>{cost()} spent</text>
         </box>
-        <box>
-          <text>
-            <b>MCP</b>
-          </text>
-          <For each={Object.entries(mcp() ?? {})}>
-            {([key, item]) => (
-              <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: {
-                      connected: Theme.success,
-                      failed: Theme.error,
-                      disabled: Theme.textMuted,
-                    }[item.status],
-                  }}
-                >
-                  •
-                </text>
-                <text wrapMode="word">
-                  {key}{" "}
-                  <span style={{ fg: Theme.textMuted }}>
-                    <Switch>
-                      <Match when={item.status === "connected"}>Connected</Match>
-                      <Match when={item.status === "failed" && item}>{(val) => <i>{val().error}</i>}</Match>
-                      <Match when={item.status === "disabled"}>Disabled in configuration</Match>
-                    </Switch>
-                  </span>
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
+        <Show when={Object.keys(sync.data.mcp).length > 0}>
+          <box>
+            <text>
+              <b>MCP</b>
+            </text>
+            <For each={Object.entries(sync.data.mcp)}>
+              {([key, item]) => (
+                <box flexDirection="row" gap={1}>
+                  <text
+                    flexShrink={0}
+                    style={{
+                      fg: {
+                        connected: Theme.success,
+                        failed: Theme.error,
+                        disabled: Theme.textMuted,
+                      }[item.status],
+                    }}
+                  >
+                    •
+                  </text>
+                  <text wrapMode="word">
+                    {key}{" "}
+                    <span style={{ fg: Theme.textMuted }}>
+                      <Switch>
+                        <Match when={item.status === "connected"}>Connected</Match>
+                        <Match when={item.status === "failed" && item}>{(val) => <i>{val().error}</i>}</Match>
+                        <Match when={item.status === "disabled"}>Disabled in configuration</Match>
+                      </Switch>
+                    </span>
+                  </text>
+                </box>
+              )}
+            </For>
+          </box>
+        </Show>
         <Show when={sync.data.lsp.length > 0}>
           <box>
             <text>
