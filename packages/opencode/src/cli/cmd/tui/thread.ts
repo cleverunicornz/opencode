@@ -23,11 +23,14 @@ export const TuiThreadCommand = cmd({
         describe: "hostname to listen on",
         default: "127.0.0.1",
       }),
-  handler: async () => {
+  handler: async (args) => {
     const worker = new Worker("./src/cli/cmd/tui/worker.ts")
     worker.onerror = console.error
     const client = Rpc.client<typeof rpc>(worker)
-    const server = await client.call("server", undefined)
+    const server = await client.call("server", {
+      port: args.port,
+      hostname: args.hostname,
+    })
     await tui({
       url: server.url,
       onExit: async () => {

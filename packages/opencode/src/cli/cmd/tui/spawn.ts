@@ -41,18 +41,14 @@ export const TuiSpawnCommand = cmd({
       cwd = new URL("../../../../", import.meta.url).pathname
     } else cmd.push(process.execPath)
     cmd.push("attach", server.url.toString(), "--dir", args.project ? path.resolve(args.project) : process.cwd())
-    while (true) {
-      const proc = Bun.spawn({
-        cmd,
-        cwd,
-        stdout: "inherit",
-        stderr: "inherit",
-        stdin: "inherit",
-      })
-      await proc.exited
-      const code = proc.exitCode
-      if (code === 0) break
-    }
+    const proc = Bun.spawn({
+      cmd,
+      cwd,
+      stdout: "inherit",
+      stderr: "inherit",
+      stdin: "inherit",
+    })
+    await proc.exited
     await Instance.disposeAll()
     await server.stop(true)
   },

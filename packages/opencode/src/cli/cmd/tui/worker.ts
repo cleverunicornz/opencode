@@ -13,11 +13,6 @@ await Log.init({
   })(),
 })
 
-const server = Server.listen({
-  port: 0,
-  hostname: "127.0.0.1",
-})
-
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
     e: e instanceof Error ? e.message : e,
@@ -30,8 +25,11 @@ process.on("uncaughtException", (e) => {
   })
 })
 
+let server: Bun.Server<undefined>
 export const rpc = {
-  server() {
+  async server(input: { port: number; hostname: string }) {
+    if (server) await server.stop(true)
+    server = Server.listen(input)
     return {
       url: server.url.toString(),
     }

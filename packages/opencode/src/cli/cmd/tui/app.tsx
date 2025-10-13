@@ -88,7 +88,6 @@ function App(props: { onExit: () => void }) {
       return
     }
     if (keybind.match("app_exit", evt)) {
-      await Instance.disposeAll()
       renderer.destroy()
       props.onExit()
     }
