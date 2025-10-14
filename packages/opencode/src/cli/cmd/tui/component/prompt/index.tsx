@@ -55,7 +55,8 @@ export function Prompt(props: PromptProps) {
         category: "Session",
         keybind: "editor_open",
         value: "prompt.editor",
-        onSelect: async () => {
+        onSelect: async (dialog) => {
+          dialog.clear()
           const value = input.value
           input.value = ""
           setStore("prompt", {
