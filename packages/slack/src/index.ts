@@ -98,7 +98,7 @@ app.message(async ({ message, say }) => {
     console.log("✅ Created opencode session:", createResult.data.id)
 
     // Start listening to events for this session
-    const eventStream = client.event.subscribe()
+    const eventStream = await client.event.subscribe()
 
     eventStream.addEventListener("message", (event: any) => {
       const data = JSON.parse(event.data)
