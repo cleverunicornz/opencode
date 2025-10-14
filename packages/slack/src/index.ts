@@ -20,33 +20,23 @@ const opencode = await createOpencode({
 console.log("✅ Opencode server ready")
 
 const sessions = new Map<string, { client: any; server: any; sessionId: string; channel: string; thread: string }>()
-let globalEventStream: any = null
-
-async function initializeGlobalEventStream(client: any) {
-  if (globalEventStream) return globalEventStream
-
-  globalEventStream = await client.event.subscribe()
-
-  // Listen for events in background
-  ;(async () => {
-    for await (const event of globalEventStream.stream) {
-      if (event.type === "message.part.updated") {
-        const part = event.properties.part
-        if (part.type === "tool") {
-          // Find the session for this tool update
-          for (const [sessionKey, session] of sessions.entries()) {
-            if (session.sessionId === part.sessionID) {
-              handleToolUpdate(part, session.channel, session.thread)
-              break
-            }
+;(async () => {
+  const events = await opencode.client.event.subscribe()
+  for await (const event of events.stream) {
+    if (event.type === "message.part.updated") {
+      const part = event.properties.part
+      if (part.type === "tool") {
+        // Find the session for this tool update
+        for (const [sessionKey, session] of sessions.entries()) {
+          if (session.sessionId === part.sessionID) {
+            handleToolUpdate(part, session.channel, session.thread)
+            break
           }
         }
       }
     }
-  })()
-
-  return globalEventStream
-}
+  }
+})()
 
 async function handleToolUpdate(toolPart: any, channel: string, thread: string) {
   const toolName = toolPart.tool || "unknown"
@@ -104,9 +94,6 @@ app.message(async ({ message, say }) => {
     }
 
     console.log("✅ Created opencode session:", createResult.data.id)
-
-    // Initialize global event stream if not already done
-    await initializeGlobalEventStream(client)
 
     session = { client, server, sessionId: createResult.data.id, channel, thread }
     sessions.set(sessionKey, session)
