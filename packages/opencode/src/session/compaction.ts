@@ -127,7 +127,6 @@ export namespace SessionCompaction {
       time: {
         created: Date.now(),
       },
-      summary: true,
     })) as MessageV2.Assistant
 
     const part = (await Session.updatePart({
@@ -177,10 +176,6 @@ export namespace SessionCompaction {
       for await (const value of stream.fullStream) {
         signal.throwIfAborted()
         switch (value.type) {
-          case "start":
-            continue
-          case "text-start":
-            continue
           case "text-delta":
             part.text += value.text
             if (value.providerMetadata) part.metadata = value.providerMetadata
@@ -207,18 +202,14 @@ export namespace SessionCompaction {
             await Session.updateMessage(msg)
             continue
           }
-          case "finish": {
-            continue
-          }
+          case "error":
+            throw value.error
           default:
-            log.info("unhandled", {
-              ...value,
-            })
             continue
         }
       }
     } catch (e) {
-      log.error("process", {
+      log.error("compaction error", {
         error: e,
       })
       switch (true) {
@@ -255,11 +246,14 @@ export namespace SessionCompaction {
     }
 
     msg.time.completed = Date.now()
-    await Session.updateMessage(msg)
 
-    Bus.publish(Event.Compacted, {
-      sessionID: input.sessionID,
-    })
+    if (!msg.error || MessageV2.AbortedError.isInstance(msg.error)) {
+      msg.summary = true
+      Bus.publish(Event.Compacted, {
+        sessionID: input.sessionID,
+      })
+    }
+    await Session.updateMessage(msg)
 
     return {
       info: msg,
