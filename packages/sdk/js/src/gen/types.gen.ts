@@ -610,6 +610,10 @@ export type UserMessage = {
   time: {
     created: number
   }
+  summary?: {
+    diffs: Array<FileDiff>
+    text: string
+  }
 }
 
 export type ProviderAuthError = {
@@ -652,6 +656,7 @@ export type AssistantMessage = {
   error?: ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError
   system: Array<string>
   finish?: string
+  parentID: string
   modelID: string
   providerID: string
   mode: string
