@@ -269,8 +269,9 @@ export namespace MessageV2 {
     }),
     summary: z
       .object({
+        title: z.string().optional(),
+        body: z.string().optional(),
         diffs: Snapshot.FileDiff.array(),
-        text: z.string(),
       })
       .optional(),
   }).meta({

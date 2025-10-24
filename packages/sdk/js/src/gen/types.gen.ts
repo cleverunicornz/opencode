@@ -614,8 +614,9 @@ export type UserMessage = {
     created: number
   }
   summary?: {
+    title?: string
+    body?: string
     diffs: Array<FileDiff>
-    text: string
   }
 }
 
