@@ -2,14 +2,7 @@ import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentu
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute, type Route } from "@tui/context/route"
-import {
-  Switch,
-  Match,
-  createEffect,
-  untrack,
-  ErrorBoundary,
-  createSignal,
-} from "solid-js"
+import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal } from "solid-js"
 import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -32,55 +25,64 @@ import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider } from "./context/exit"
 import type { SessionRoute } from "./context/route"
 
-export async function tui(input: {
+export function tui(input: {
   url: string
   sessionID?: string
   model?: string
   agent?: string
   onExit?: () => Promise<void>
 }) {
-  const routeData: Route | undefined = input.sessionID
-    ? {
-        type: "session",
-        sessionID: input.sessionID,
-      }
-    : undefined
-  await render(
-    () => {
-      return (
-        <ErrorBoundary fallback={<text>Something went wrong</text>}>
-          <ExitProvider onExit={input.onExit}>
-            <ToastProvider>
-              <RouteProvider data={routeData}>
-                <SDKProvider url={input.url}>
-                  <SyncProvider>
-                    <ThemeProvider>
-                      <LocalProvider initialModel={input.model} initialAgent={input.agent}>
-                        <KeybindProvider>
-                          <DialogProvider>
-                            <CommandProvider>
-                              <PromptHistoryProvider>
-                                <App />
-                              </PromptHistoryProvider>
-                            </CommandProvider>
-                          </DialogProvider>
-                        </KeybindProvider>
-                      </LocalProvider>
-                    </ThemeProvider>
-                  </SyncProvider>
-                </SDKProvider>
-              </RouteProvider>
-            </ToastProvider>
-          </ExitProvider>
-        </ErrorBoundary>
-      )
-    },
-    {
-      targetFps: 60,
-      gatherStats: false,
-      exitOnCtrlC: false,
-    },
-  )
+  // promise to prevent immediate exit
+  return new Promise<void>((resolve) => {
+    const routeData: Route | undefined = input.sessionID
+      ? {
+          type: "session",
+          sessionID: input.sessionID,
+        }
+      : undefined
+
+    const onExit = async () => {
+      await input.onExit?.()
+      resolve()
+    }
+
+    render(
+      () => {
+        return (
+          <ErrorBoundary fallback={<text>Something went wrong</text>}>
+            <ExitProvider onExit={onExit}>
+              <ToastProvider>
+                <RouteProvider data={routeData}>
+                  <SDKProvider url={input.url}>
+                    <SyncProvider>
+                      <ThemeProvider>
+                        <LocalProvider initialModel={input.model} initialAgent={input.agent}>
+                          <KeybindProvider>
+                            <DialogProvider>
+                              <CommandProvider>
+                                <PromptHistoryProvider>
+                                  <App />
+                                </PromptHistoryProvider>
+                              </CommandProvider>
+                            </DialogProvider>
+                          </KeybindProvider>
+                        </LocalProvider>
+                      </ThemeProvider>
+                    </SyncProvider>
+                  </SDKProvider>
+                </RouteProvider>
+              </ToastProvider>
+            </ExitProvider>
+          </ErrorBoundary>
+        )
+      },
+      {
+        targetFps: 60,
+        gatherStats: false,
+        exitOnCtrlC: false,
+      },
+    )
+  })
 }
 
 function App() {
