@@ -289,9 +289,10 @@ function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJs
 function generateGrayScale(bg: RGBA, isDark: boolean): Record<number, RGBA> {
   const grays: Record<number, RGBA> = {}
 
-  const bgR = bg.r
-  const bgG = bg.g
-  const bgB = bg.b
+  // RGBA stores floats in range 0-1, convert to 0-255
+  const bgR = bg.r * 255
+  const bgG = bg.g * 255
+  const bgB = bg.b * 255
 
   const luminance = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB
 
@@ -340,9 +341,10 @@ function generateGrayScale(bg: RGBA, isDark: boolean): Record<number, RGBA> {
 }
 
 function generateMutedTextColor(bg: RGBA, isDark: boolean): RGBA {
-  const bgR = bg.r
-  const bgG = bg.g
-  const bgB = bg.b
+  // RGBA stores floats in range 0-1, convert to 0-255
+  const bgR = bg.r * 255
+  const bgG = bg.g * 255
+  const bgB = bg.b * 255
 
   const bgLum = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB
 
