@@ -283,8 +283,8 @@ export namespace SessionPrompt {
     using _ = defer(() => cancel(sessionID))
 
     let step = 0
-    let retries = 0
     while (true) {
+      if (abort.aborted) break
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
       let lastUser: MessageV2.User | undefined
@@ -295,10 +295,11 @@ export namespace SessionPrompt {
         const msg = msgs[i]
         if (!lastUser && msg.info.role === "user") lastUser = msg.info as MessageV2.User
         if (!lastAssistant && msg.info.role === "assistant") lastAssistant = msg.info as MessageV2.Assistant
-        if (msg.info.role === "assistant" && msg.info.finish) lastFinished = msg.info as MessageV2.Assistant
+        if (!lastFinished && msg.info.role === "assistant" && msg.info.finish)
+          lastFinished = msg.info as MessageV2.Assistant
         if (lastUser && lastFinished) break
         const compaction = msg.parts.find((part) => part.type === "compaction")
-        if (compaction) {
+        if (compaction && !lastFinished) {
           tasks.push(compaction)
         }
       }
@@ -312,9 +313,25 @@ export namespace SessionPrompt {
       const model = await Provider.getModel(lastUser.model.providerID, lastUser.model.modelID)
       const task = tasks.pop()
 
+      // pending compaction
+      if (task?.type === "compaction") {
+        await SessionCompaction.process({
+          messages: msgs,
+          parentID: lastUser.id,
+          abort,
+          model: {
+            providerID: model.providerID,
+            modelID: model.modelID,
+          },
+          sessionID,
+        })
+        continue
+      }
+
+      // context overflow, needs compaction
       if (
-        task?.type !== "compaction" &&
         lastFinished &&
+        lastFinished.summary !== true &&
         SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model: model.info })
       ) {
         const msg = await Session.updateMessage({
@@ -336,97 +353,85 @@ export namespace SessionPrompt {
         continue
       }
 
-      const result = await iife(async () => {
-        if (task?.type === "compaction") {
-          return await SessionCompaction.process({
-            messages: msgs,
-            parentID: lastUser.id,
-            abort,
-            model: {
-              providerID: model.providerID,
-              modelID: model.modelID,
-            },
-            sessionID,
-          })
-        }
-
-        const agent = await Agent.get(lastUser.agent)
-        msgs = insertReminders({
-          messages: msgs,
-          agent,
-        })
-        const processor = SessionProcessor.create({
-          assistantMessage: (await Session.updateMessage({
-            id: Identifier.ascending("message"),
-            parentID: lastUser.id,
-            role: "assistant",
-            mode: agent.name,
-            path: {
-              cwd: Instance.directory,
-              root: Instance.worktree,
-            },
-            cost: 0,
-            tokens: {
-              input: 0,
-              output: 0,
-              reasoning: 0,
-              cache: { read: 0, write: 0 },
-            },
-            modelID: model.modelID,
-            providerID: model.providerID,
-            time: {
-              created: Date.now(),
-            },
-            sessionID,
-          })) as MessageV2.Assistant,
-          sessionID: sessionID,
-          model: model.info,
+      // normal processing
+      const agent = await Agent.get(lastUser.agent)
+      msgs = insertReminders({
+        messages: msgs,
+        agent,
+      })
+      const processor = SessionProcessor.create({
+        assistantMessage: (await Session.updateMessage({
+          id: Identifier.ascending("message"),
+          parentID: lastUser.id,
+          role: "assistant",
+          mode: agent.name,
+          path: {
+            cwd: Instance.directory,
+            root: Instance.worktree,
+          },
+          cost: 0,
+          tokens: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
+          modelID: model.modelID,
           providerID: model.providerID,
-          abort,
-        })
-        const system = await resolveSystemPrompt({
-          providerID: model.providerID,
-          modelID: model.info.id,
-          agent,
-          system: lastUser.system,
-        })
-        const tools = await resolveTools({
-          agent,
+          time: {
+            created: Date.now(),
+          },
           sessionID,
-          model: lastUser.model,
-          tools: lastUser.tools,
-          processor,
+        })) as MessageV2.Assistant,
+        sessionID: sessionID,
+        model: model.info,
+        providerID: model.providerID,
+        abort,
+      })
+      const system = await resolveSystemPrompt({
+        providerID: model.providerID,
+        modelID: model.info.id,
+        agent,
+        system: lastUser.system,
+      })
+      const tools = await resolveTools({
+        agent,
+        sessionID,
+        model: lastUser.model,
+        tools: lastUser.tools,
+        processor,
+      })
+      const params = await Plugin.trigger(
+        "chat.params",
+        {
+          sessionID: sessionID,
+          agent: lastUser.agent,
+          model: model.info,
+          provider: await Provider.getProvider(model.providerID),
+          message: lastUser,
+        },
+        {
+          temperature: model.info.temperature
+            ? (agent.temperature ?? ProviderTransform.temperature(model.providerID, model.modelID))
+            : undefined,
+          topP: agent.topP ?? ProviderTransform.topP(model.providerID, model.modelID),
+          options: {
+            ...ProviderTransform.options(model.providerID, model.modelID, model.npm ?? "", sessionID),
+            ...model.info.options,
+            ...agent.options,
+          },
+        },
+      )
+
+      if (step === 1) {
+        SessionSummary.summarize({
+          sessionID: sessionID,
+          messageID: lastUser.id,
         })
-        const params = await Plugin.trigger(
-          "chat.params",
-          {
-            sessionID: sessionID,
-            agent: lastUser.agent,
-            model: model.info,
-            provider: await Provider.getProvider(model.providerID),
-            message: lastUser,
-          },
-          {
-            temperature: model.info.temperature
-              ? (agent.temperature ?? ProviderTransform.temperature(model.providerID, model.modelID))
-              : undefined,
-            topP: agent.topP ?? ProviderTransform.topP(model.providerID, model.modelID),
-            options: {
-              ...ProviderTransform.options(model.providerID, model.modelID, model.npm ?? "", sessionID),
-              ...model.info.options,
-              ...agent.options,
-            },
-          },
-        )
+      }
 
-        if (step === 1) {
-          SessionSummary.summarize({
-            sessionID: sessionID,
-            messageID: lastUser.id,
-          })
-        }
-
-        const stream = streamText({
+      const result = await processor.process(() =>
+        streamText({
           onError(error) {
             log.error("stream error", {
               error,
@@ -514,37 +519,10 @@ export namespace SessionPrompt {
               },
             ],
           }),
-        })
-
-        return await processor.process(stream)
-      })
-
-      if (result.blocked) break
-      if (result.info.error?.name === "APIError" && result.info.error.data.isRetryable) {
-        retries++
-        const delay = SessionRetry.getRetryDelayInMs(result.info.error, retries)
-        if (!delay) break
-        state()[sessionID].status = {
-          type: "retry",
-          attempt: retries,
-          message: result.info.error.data.message,
-        }
-        Bus.publish(Event.Status, {
-          sessionID,
-          status: state()[sessionID].status,
-        })
-        await SessionRetry.sleep(delay, abort).catch(() => {})
-        state()[sessionID].status = {
-          type: "busy",
-        }
-        Bus.publish(Event.Status, {
-          sessionID,
-          status: state()[sessionID].status,
-        })
-        continue
-      }
-      retries = 0
-      if (result.info.error) break
+        }),
+      )
+      if (result === "stop") break
+      continue
     }
     SessionCompaction.prune({ sessionID })
     for await (const item of MessageV2.stream(sessionID)) {
