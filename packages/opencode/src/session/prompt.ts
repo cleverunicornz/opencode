@@ -237,9 +237,6 @@ export namespace SessionPrompt {
   }
 
   export const prompt = fn(PromptInput, async (input) => {
-    const l = log.clone().tag("session", input.sessionID)
-    l.info("prompt", input)
-
     const session = await Session.get(input.sessionID)
     await SessionRevert.cleanup(session)
 
@@ -295,7 +292,7 @@ export namespace SessionPrompt {
 
     let step = 0
     while (true) {
-      log.info("loop", { step })
+      log.info("loop", { step, sessionID })
       if (abort.aborted) break
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
@@ -318,10 +315,9 @@ export namespace SessionPrompt {
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
       if (lastAssistant?.finish && lastAssistant.finish !== "tool-calls" && lastUser.id < lastAssistant.id) {
-        log.info("exiting loop", { id: lastAssistant?.id })
+        log.info("exiting loop", { sessionID })
         break
       }
-      log.info("last assistant", { id: lastAssistant?.id })
 
       step++
 
