@@ -266,6 +266,7 @@ export namespace SessionPrompt {
   }
 
   export function cancel(sessionID: string) {
+    log.info("cancel", { sessionID })
     const s = state()
     const match = s[sessionID]
     if (!match) return
@@ -294,6 +295,7 @@ export namespace SessionPrompt {
 
     let step = 0
     while (true) {
+      log.info("loop", { step })
       if (abort.aborted) break
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
