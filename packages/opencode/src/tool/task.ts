@@ -103,8 +103,7 @@ export const TaskTool = Tool.define("task", async () => {
       all = all.flatMap((msg) => msg.parts.filter((x: any) => x.type === "tool") as MessageV2.ToolPart[])
       const text = result.parts.findLast((x) => x.type === "text")?.text ?? ""
 
-      const output =
-        text + "\n\n" + ["<session_metadata>", `Session ID: ${session.id}`, "</session_metadata>"].join("\n")
+      const output = text + "\n\n" + ["<task_metadata>", `session_id: ${session.id}`, "</task_metadata>"].join("\n")
 
       return {
         title: params.description,
