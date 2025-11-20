@@ -23,6 +23,7 @@ import { Instance } from "../project/instance"
 import { Agent } from "../agent/agent"
 import { Auth } from "../auth"
 import { Command } from "../command"
+import { ProviderAuth } from "../provider/auth"
 import { Global } from "../global"
 import { ProjectRoute } from "./project"
 import { ToolRegistry } from "../tool/registry"
@@ -1211,6 +1212,26 @@ export namespace Server {
             default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
             connected,
           })
+        },
+      )
+      .get(
+        "/provider/auth",
+        describeRoute({
+          description: "Get provider authentication methods",
+          operationId: "provider.auth",
+          responses: {
+            200: {
+              description: "Provider auth methods",
+              content: {
+                "application/json": {
+                  schema: resolver(z.record(z.string(), z.array(ProviderAuth.Method))),
+                },
+              },
+            },
+          },
+        }),
+        async (c) => {
+          return c.json(await ProviderAuth.methods())
         },
       )
       .get(

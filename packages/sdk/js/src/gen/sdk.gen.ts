@@ -96,6 +96,8 @@ import type {
   ConfigProvidersResponses,
   ProviderListData,
   ProviderListResponses,
+  ProviderAuthData,
+  ProviderAuthResponses,
   FindTextData,
   FindTextResponses,
   FindFilesData,
@@ -577,6 +579,16 @@ class Provider extends _HeyApiClient {
   public list<ThrowOnError extends boolean = false>(options?: Options<ProviderListData, ThrowOnError>) {
     return (options?.client ?? this._client).get<ProviderListResponses, unknown, ThrowOnError>({
       url: "/provider",
+      ...options,
+    })
+  }
+
+  /**
+   * Get provider authentication methods
+   */
+  public auth<ThrowOnError extends boolean = false>(options?: Options<ProviderAuthData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<ProviderAuthResponses, unknown, ThrowOnError>({
+      url: "/provider/auth",
       ...options,
     })
   }

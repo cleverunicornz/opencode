@@ -30,6 +30,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       provider: Provider[]
       provider_default: Record<string, string>
       provider_next: ProviderListResponse
+      provider_auth: Record<string, { type: string; label: string }[]>
       agent: Agent[]
       command: Command[]
       permission: {
@@ -63,6 +64,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         default: {},
         connected: [],
       },
+      provider_auth: {},
       config: {},
       status: "loading",
       agent: [],
@@ -271,6 +273,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.mcp.status().then((x) => setStore("mcp", x.data!)),
             sdk.client.formatter.status().then((x) => setStore("formatter", x.data!)),
             sdk.client.session.status().then((x) => setStore("session_status", x.data!)),
+            sdk.client.provider.auth().then((x) => setStore("provider_auth", x.data ?? {})),
           ]).then(() => {
             setStore("status", "complete")
           })
