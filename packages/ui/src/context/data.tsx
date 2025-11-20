@@ -19,7 +19,7 @@ type Data = {
 
 export const { use: useData, provider: DataProvider } = createSimpleContext({
   name: "Data",
-  init: (data: Data) => {
-    return data
+  init: (props: { data: Data }) => {
+    return props.data
   },
 })

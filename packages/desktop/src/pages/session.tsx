@@ -15,8 +15,8 @@ import {
   ProgressCircle,
   FileIcon,
   SessionReview,
+  MessageProgress,
 } from "@opencode-ai/ui"
-import { MessageProgress } from "@/components/message-progress"
 import {
   For,
   onCleanup,
