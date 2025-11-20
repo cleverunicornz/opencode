@@ -51,6 +51,7 @@ app
     async (c) => {
       const body = c.req.valid("json")
       const share = await Share.create({ id: body.sessionID })
+      console.log(share)
       return c.json({
         secret: share.secret,
         url: "/s/" + share.id,
