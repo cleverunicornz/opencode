@@ -8,7 +8,7 @@ import { proxy } from "hono/proxy"
 import { Session } from "../session"
 import z from "zod"
 import { Provider } from "../provider/provider"
-import { mapValues } from "remeda"
+import { map, mapValues, pipe, values } from "remeda"
 import { NamedError } from "../util/error"
 import { ModelsDev } from "../provider/models"
 import { Ripgrep } from "../file/ripgrep"
@@ -1157,6 +1157,38 @@ export namespace Server {
           return c.json({
             providers: Object.values(providers),
             default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
+          })
+        },
+      )
+      .get(
+        "/provider",
+        describeRoute({
+          description: "List all providers",
+          operationId: "provider.list",
+          responses: {
+            200: {
+              description: "List of providers",
+              content: {
+                "application/json": {
+                  schema: resolver(
+                    z.object({
+                      all: ModelsDev.Provider.array(),
+                      default: z.record(z.string(), z.string()),
+                      connected: z.array(z.string()),
+                    }),
+                  ),
+                },
+              },
+            },
+          },
+        }),
+        async (c) => {
+          const providers = await ModelsDev.get()
+          const connected = await Provider.list().then((x) => Object.keys(x))
+          return c.json({
+            all: Object.values(providers),
+            default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
+            connected,
           })
         },
       )

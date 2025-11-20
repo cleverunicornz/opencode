@@ -92,6 +92,8 @@ import type {
   CommandListResponses,
   ConfigProvidersData,
   ConfigProvidersResponses,
+  ProviderListData,
+  ProviderListResponses,
   FindTextData,
   FindTextResponses,
   FindFilesData,
@@ -554,6 +556,18 @@ class Command extends _HeyApiClient {
   }
 }
 
+class Provider extends _HeyApiClient {
+  /**
+   * List all providers
+   */
+  public list<ThrowOnError extends boolean = false>(options?: Options<ProviderListData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<ProviderListResponses, unknown, ThrowOnError>({
+      url: "/provider",
+      ...options,
+    })
+  }
+}
+
 class Find extends _HeyApiClient {
   /**
    * Find text in files
@@ -894,6 +908,7 @@ export class OpencodeClient extends _HeyApiClient {
   path = new Path({ client: this._client })
   session = new Session({ client: this._client })
   command = new Command({ client: this._client })
+  provider = new Provider({ client: this._client })
   find = new Find({ client: this._client })
   file = new File({ client: this._client })
   app = new App({ client: this._client })
