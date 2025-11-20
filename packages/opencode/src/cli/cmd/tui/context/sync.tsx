@@ -239,9 +239,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     const exit = useExit()
 
-    onMount(() => {
+    async function bootstrap() {
       // blocking
-      Promise.all([
+      await Promise.all([
         sdk.client.config.providers({ throwOnError: true }).then((x) => {
           batch(() => {
             setStore("provider", x.data!.providers)
@@ -257,7 +257,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         sdk.client.config.get({ throwOnError: true }).then((x) => setStore("config", x.data!)),
       ])
         .then(() => {
-          setStore("status", "partial")
+          if (store.status !== "complete") setStore("status", "partial")
           // non-blocking
           Promise.all([
             sdk.client.session.list().then((x) =>
@@ -278,6 +278,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         .catch(async (e) => {
           await exit(e)
         })
+    }
+
+    onMount(() => {
+      bootstrap()
     })
 
     const result = {
@@ -332,6 +336,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           console.log("synced in " + (Date.now() - now), sessionID)
         },
       },
+      bootstrap,
     }
     return result
   },

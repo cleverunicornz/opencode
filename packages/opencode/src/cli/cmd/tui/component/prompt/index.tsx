@@ -213,7 +213,7 @@ export function Prompt(props: PromptProps) {
         title: "Interrupt session",
         value: "session.interrupt",
         keybind: "session_interrupt",
-        disabled: status()?.type !== "idle",
+        disabled: status().type === "idle",
         category: "Session",
         onSelect: (dialog) => {
           if (!props.sessionID) return

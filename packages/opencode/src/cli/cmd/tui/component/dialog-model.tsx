@@ -5,6 +5,8 @@ import { map, pipe, flatMap, entries, filter, isDeepEqual, sortBy } from "remeda
 import { DialogSelect, type DialogSelectOption, type DialogSelectRef } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme } from "../context/theme"
+import { DialogPrompt } from "../ui/dialog-prompt"
+import { useSDK } from "../context/sdk"
 
 function Free() {
   const { theme } = useTheme()
@@ -24,6 +26,7 @@ export function DialogModel() {
   const local = useLocal()
   const sync = useSync()
   const dialog = useDialog()
+  const sdk = useSDK()
   const [ref, setRef] = createSignal<DialogSelectRef<unknown>>()
 
   const connected = createMemo(() =>
@@ -107,6 +110,26 @@ export function DialogModel() {
               title: provider.name,
               category: "Connect a provider",
               value: provider.id,
+              footer: {
+                opencode: "Recommended",
+                anthropic: "Claude Max or API key",
+              }[provider.id],
+              async onSelect() {
+                const key = await DialogPrompt.show(dialog, "Enter API key")
+                if (!key) return
+                await sdk.client.auth.set({
+                  path: {
+                    id: provider.id,
+                  },
+                  body: {
+                    type: "api",
+                    key,
+                  },
+                })
+                await sdk.client.instance.dispose()
+                await sync.bootstrap()
+                dialog.replace(() => <DialogModel />)
+              },
             })),
             sortBy((x) => PROVIDER_PRIORITY[x.value] ?? 99),
           )

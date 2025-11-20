@@ -19,6 +19,8 @@ import type {
   ToolListData,
   ToolListResponses,
   ToolListErrors,
+  InstanceDisposeData,
+  InstanceDisposeResponses,
   PathGetData,
   PathGetResponses,
   SessionListData,
@@ -269,6 +271,18 @@ class Tool extends _HeyApiClient {
   public list<ThrowOnError extends boolean = false>(options: Options<ToolListData, ThrowOnError>) {
     return (options.client ?? this._client).get<ToolListResponses, ToolListErrors, ThrowOnError>({
       url: "/experimental/tool",
+      ...options,
+    })
+  }
+}
+
+class Instance extends _HeyApiClient {
+  /**
+   * Dispose the current instance
+   */
+  public dispose<ThrowOnError extends boolean = false>(options?: Options<InstanceDisposeData, ThrowOnError>) {
+    return (options?.client ?? this._client).post<InstanceDisposeResponses, unknown, ThrowOnError>({
+      url: "/instance/dispose",
       ...options,
     })
   }
@@ -905,6 +919,7 @@ export class OpencodeClient extends _HeyApiClient {
   project = new Project({ client: this._client })
   config = new Config({ client: this._client })
   tool = new Tool({ client: this._client })
+  instance = new Instance({ client: this._client })
   path = new Path({ client: this._client })
   session = new Session({ client: this._client })
   command = new Command({ client: this._client })

@@ -303,6 +303,27 @@ export namespace Server {
           )
         },
       )
+      .post(
+        "/instance/dispose",
+        describeRoute({
+          description: "Dispose the current instance",
+          operationId: "instance.dispose",
+          responses: {
+            200: {
+              description: "Instance disposed",
+              content: {
+                "application/json": {
+                  schema: resolver(z.boolean()),
+                },
+              },
+            },
+          },
+        }),
+        async (c) => {
+          await Instance.dispose()
+          return c.json(true)
+        },
+      )
       .get(
         "/path",
         describeRoute({
