@@ -1,21 +1,19 @@
 import type { Component } from "solid-js"
 import { createSignal } from "solid-js"
-import {
-  Accordion,
-  Button,
-  Checkbox,
-  Select,
-  Tabs,
-  Tooltip,
-  Fonts,
-  Dialog,
-  Icon,
-  IconButton,
-  Input,
-  SelectDialog,
-  Collapsible,
-} from "./components"
 import "./index.css"
+import { Button } from "./components/button"
+import { Select } from "./components/select"
+import { Fonts } from "./components/fonts"
+import { Accordion } from "./components/accordion"
+import { Tabs } from "./components/tabs"
+import { Tooltip } from "./components/tooltip"
+import { Input } from "./components/input"
+import { Checkbox } from "./components/checkbox"
+import { Icon } from "./components/icon"
+import { IconButton } from "./components/icon-button"
+import { Dialog } from "./components/dialog"
+import { SelectDialog } from "./components/select-dialog"
+import { Collapsible } from "./components/collapsible"
 
 const Demo: Component = () => {
   const [dialogOpen, setDialogOpen] = createSignal(false)
