@@ -1,7 +1,7 @@
 import type { Component, JSX } from "solid-js"
 import { createMemo, splitProps } from "solid-js"
-import sprite from "@/ui/file-icons/sprite.svg"
-import type { IconName } from "@/ui/file-icons/types"
+import sprite from "./file-icons/sprite.svg"
+import type { IconName } from "./file-icons/types"
 
 export type FileIconProps = JSX.GSVGAttributes<SVGSVGElement> & {
   node: { path: string; type: "file" | "directory" }

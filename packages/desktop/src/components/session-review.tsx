@@ -1,17 +1,12 @@
-import { useSession } from "@/context/session"
-import { FileIcon } from "@/ui"
-import { getDirectory, getFilename } from "@/utils"
-import { Accordion, Button, Diff, DiffChanges, Icon, IconButton, Tooltip } from "@opencode-ai/ui"
-import { For, Match, Show, Switch } from "solid-js"
-import { StickyAccordionHeader } from "./sticky-accordion-header"
+import { Accordion, Button, Diff, DiffChanges, FileIcon, Icon, StickyAccordionHeader } from "@opencode-ai/ui"
+import { getDirectory, getFilename } from "@opencode-ai/util/path"
+import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
-import { useLayout } from "@/context/layout"
+import { type FileDiff } from "@opencode-ai/sdk"
 
-export const SessionReview = (props: { split?: boolean; class?: string; hideExpand?: boolean }) => {
-  const layout = useLayout()
-  const session = useSession()
+export const SessionReview = (props: { split?: boolean; class?: string; actions?: JSX.Element; diffs: FileDiff[] }) => {
   const [store, setStore] = createStore({
-    open: session.diffs().map((d) => d.file),
+    open: props.diffs.map((d) => d.file),
   })
 
   const handleChange = (open: string[]) => {
@@ -24,7 +19,7 @@ export const SessionReview = (props: { split?: boolean; class?: string; hideExpa
     } else {
       setStore(
         "open",
-        session.diffs().map((d) => d.file),
+        props.diffs.map((d) => d.file),
       )
     }
   }
@@ -45,22 +40,11 @@ export const SessionReview = (props: { split?: boolean; class?: string; hideExpa
               <Match when={true}>Expand all</Match>
             </Switch>
           </Button>
-          <Show when={!props.hideExpand}>
-            <Tooltip value="Open in tab">
-              <IconButton
-                icon="expand"
-                variant="ghost"
-                onClick={() => {
-                  layout.review.tab()
-                  session.layout.setActiveTab("review")
-                }}
-              />
-            </Tooltip>
-          </Show>
+          {props.actions}
         </div>
       </div>
       <Accordion multiple value={store.open} onChange={handleChange}>
-        <For each={session.diffs()}>
+        <For each={props.diffs}>
           {(diff) => (
             <Accordion.Item value={diff.file}>
               <StickyAccordionHeader class="top-11 data-expanded:before:-top-11">

@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store"
-import { createSimpleContext } from "./helper"
+import { createSimpleContext } from "@opencode-ai/ui/context"
 import { batch, createEffect, createMemo } from "solid-js"
 import { useSync } from "./sync"
 import { makePersisted } from "@solid-primitives/storage"

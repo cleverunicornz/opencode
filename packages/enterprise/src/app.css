@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "@opencode-ai/ui/styles/tailwind";
 
 :root {
   --background-rgb: 214, 219, 220;
@@ -13,6 +13,6 @@
 }
 
 body {
-  background: rgb(var(--background-rgb));
-  color: rgb(var(--foreground-rgb));
+  /* background: rgb(var(--background-rgb)); */
+  /* color: rgb(var(--foreground-rgb)); */
 }

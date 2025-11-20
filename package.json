@@ -30,6 +30,8 @@
       "@openauthjs/openauth": "0.0.0-20250322224806",
       "@pierre/precision-diffs": "0.4.4",
       "@solidjs/meta": "0.29.4",
+      "@solidjs/router": "0.15.3",
+      "@solidjs/start": "1.1.0",
       "@tailwindcss/vite": "4.1.11",
       "diff": "8.0.2",
       "ai": "5.0.8",

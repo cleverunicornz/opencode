@@ -13,8 +13,8 @@ import {
   Code,
   Tooltip,
   ProgressCircle,
+  FileIcon,
 } from "@opencode-ai/ui"
-import { FileIcon } from "@/ui"
 import { MessageProgress } from "@/components/message-progress"
 import {
   For,
@@ -46,10 +46,8 @@ import type { DragEvent, Transformer } from "@thisbeyond/solid-dnd"
 import type { JSX } from "solid-js"
 import { useSync } from "@/context/sync"
 import { type AssistantMessage as AssistantMessageType } from "@opencode-ai/sdk"
-import { Markdown } from "@opencode-ai/ui"
-import { Spinner } from "@/components/spinner"
+import { Markdown, Spinner, StickyAccordionHeader } from "@opencode-ai/ui"
 import { useSession } from "@/context/session"
-import { StickyAccordionHeader } from "@/components/sticky-accordion-header"
 import { SessionReview } from "@/components/session-review"
 import { useLayout } from "@/context/layout"
 import { createSessionSeen } from "@/hooks/create-session-seen"
@@ -673,7 +671,21 @@ export default function Page() {
                     "relative grow px-6 py-3 flex-1 min-h-0 border-l border-border-weak-base": true,
                   }}
                 >
-                  <SessionReview />
+                  <SessionReview
+                    diffs={session.diffs()}
+                    actions={
+                      <Tooltip value="Open in tab">
+                        <IconButton
+                          icon="expand"
+                          variant="ghost"
+                          onClick={() => {
+                            layout.review.tab()
+                            session.layout.setActiveTab("review")
+                          }}
+                        />
+                      </Tooltip>
+                    }
+                  />
                 </div>
               </Show>
             </div>
@@ -685,7 +697,7 @@ export default function Page() {
                   "relative px-6 py-3 flex-1 min-h-0 overflow-hidden": true,
                 }}
               >
-                <SessionReview split hideExpand class="pb-40" />
+                <SessionReview diffs={session.diffs()} split class="pb-40" />
               </div>
             </Tabs.Content>
           </Show>

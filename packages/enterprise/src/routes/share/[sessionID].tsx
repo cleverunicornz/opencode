@@ -1,6 +1,5 @@
 import { FileDiff, Message, Part, Session } from "@opencode-ai/sdk"
-import { createAsync, query, useParams } from "@solidjs/router"
-import { ParentProps } from "solid-js"
+import { createAsync, query, RouteDefinition, useParams } from "@solidjs/router"
 import { Share } from "~/core/share"
 
 const getData = query(async (sessionID) => {
@@ -46,12 +45,15 @@ const getData = query(async (sessionID) => {
   return result
 }, "getShareData")
 
-export default function (props: ParentProps) {
+export const route = {
+  preload: ({ params }) => getData(params.sessionID),
+} satisfies RouteDefinition
+
+export default function () {
   const params = useParams()
   const data = createAsync(async () => {
     if (!params.sessionID) return
     return getData(params.sessionID)
   })
-
   return <pre>{JSON.stringify(data(), null, 2)}</pre>
 }
