@@ -3,6 +3,41 @@ import { ProviderTransform } from "../../src/provider/transform"
 
 const OUTPUT_TOKEN_MAX = 32000
 
+describe("ProviderTransform.options", () => {
+  test("merges providerOptions into result", () => {
+    const providerOptions = {
+      thinking: {
+        type: "enabled",
+        budgetTokens: 20000,
+      },
+    }
+    const result = ProviderTransform.options(
+      "anthropic",
+      "claude-opus-4-5",
+      "@ai-sdk/anthropic",
+      "session-123",
+      providerOptions,
+    )
+    expect(result.thinking).toEqual({
+      type: "enabled",
+      budgetTokens: 20000,
+    })
+  })
+
+  test("computed options take precedence over providerOptions", () => {
+    const providerOptions = {
+      promptCacheKey: "user-provided-key",
+    }
+    const result = ProviderTransform.options("openai", "gpt-4", "@ai-sdk/openai", "session-123", providerOptions)
+    expect(result.promptCacheKey).toBe("session-123")
+  })
+
+  test("returns only computed options when providerOptions is undefined", () => {
+    const result = ProviderTransform.options("openai", "gpt-4", "@ai-sdk/openai", "session-123")
+    expect(result.promptCacheKey).toBe("session-123")
+  })
+})
+
 describe("ProviderTransform.maxOutputTokens", () => {
   test("returns 32k when modelLimit > 32k", () => {
     const modelLimit = 100000

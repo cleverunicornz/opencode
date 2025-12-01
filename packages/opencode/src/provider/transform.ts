@@ -174,6 +174,12 @@ export namespace ProviderTransform {
         result["reasoningSummary"] = "auto"
       }
     }
+
+    // Merge provider-specific options from config
+    if (providerOptions) {
+      return { ...providerOptions, ...result }
+    }
+
     return result
   }
 
