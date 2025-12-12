@@ -2,7 +2,7 @@ import { test, expect } from "bun:test"
 import { $ } from "bun"
 import { Snapshot } from "../../src/snapshot"
 import { Instance } from "../../src/project/instance"
-import { tmpdir } from "../fixture/fixture"
+import { tmpdir, gitEnv } from "../fixture/fixture"
 
 async function bootstrap() {
   return tmpdir({
@@ -13,8 +13,8 @@ async function bootstrap() {
       const bContent = `B${unique}`
       await Bun.write(`${dir}/a.txt`, aContent)
       await Bun.write(`${dir}/b.txt`, bContent)
-      await $`git add .`.cwd(dir).quiet()
-      await $`git commit --no-gpg-sign -m init`.cwd(dir).quiet()
+      await $`git add .`.cwd(dir).env(gitEnv).quiet()
+      await $`git commit --no-gpg-sign -m init`.cwd(dir).env(gitEnv).quiet()
       return {
         aContent,
         bContent,

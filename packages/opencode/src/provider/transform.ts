@@ -211,67 +211,91 @@ export namespace ProviderTransform {
   }
 
   export function options(
-    model: Provider.Model,
+    model: Provider.Model | string,
     sessionID: string,
     providerOptions?: Record<string, any>,
+    legacySessionID?: string,
+    legacyProviderOptions?: Record<string, any>,
   ): Record<string, any> {
+    let providerModel: Provider.Model | undefined
+    let session = sessionID
+    let options = providerOptions
+
+    if (typeof model === "string") {
+      const providerID = model
+      const modelId = sessionID
+      const npm = typeof providerOptions === "string" ? providerOptions : ""
+      if (typeof legacySessionID === "string") session = legacySessionID
+      const maybeOptions = legacyProviderOptions ?? (typeof legacySessionID === "object" ? legacySessionID : undefined)
+      options =
+        typeof maybeOptions === "object" && maybeOptions !== null && !Array.isArray(maybeOptions)
+          ? (maybeOptions as Record<string, any>)
+          : undefined
+      providerModel = { providerID, api: { id: modelId, npm } } as Provider.Model
+    } else {
+      providerModel = model
+    }
+
+    if (!providerModel?.api) {
+      return options ? { ...options } : {}
+    }
+
+    const api = providerModel.api
     const result: Record<string, any> = {}
 
-    if (model.api.npm === "@openrouter/ai-sdk-provider") {
+    if (api.npm === "@openrouter/ai-sdk-provider") {
       result["usage"] = {
         include: true,
       }
-      if (model.api.id.includes("gemini-3")) {
+      if (api.id.includes("gemini-3")) {
         result["reasoning"] = { effort: "high" }
+      }
+      if (providerModel.providerID === "anthropic" && options?.thinking) {
+        result["thinking"] = options.thinking
       }
     }
 
     if (
-      model.providerID === "baseten" ||
-      (model.providerID === "opencode" && ["kimi-k2-thinking", "glm-4.6"].includes(model.api.id))
+      providerModel.providerID === "baseten" ||
+      (providerModel.providerID === "opencode" && ["kimi-k2-thinking", "glm-4.6"].includes(api.id))
     ) {
       result["chat_template_args"] = { enable_thinking: true }
     }
 
-    if (model.providerID === "openai" || providerOptions?.setCacheKey) {
-      result["promptCacheKey"] = sessionID
+    if (providerModel.providerID === "openai" || options?.setCacheKey || api.npm === "@ai-sdk/openai") {
+      result["promptCacheKey"] = session
     }
 
-    if (model.api.npm === "@ai-sdk/google" || model.api.npm === "@ai-sdk/google-vertex") {
+    if (api.npm === "@ai-sdk/google" || api.npm === "@ai-sdk/google-vertex") {
       result["thinkingConfig"] = {
         includeThoughts: true,
       }
-      if (model.api.id.includes("gemini-3")) {
+      if (api.id.includes("gemini-3")) {
         result["thinkingConfig"]["thinkingLevel"] = "high"
       }
     }
 
-    if (model.api.id.includes("gpt-5") && !model.api.id.includes("gpt-5-chat")) {
-      if (model.providerID.includes("codex")) {
+    if (api.id.includes("gpt-5") && !api.id.includes("gpt-5-chat")) {
+      if (providerModel.providerID.includes("codex")) {
         result["store"] = false
       }
 
-      if (!model.api.id.includes("codex") && !model.api.id.includes("gpt-5-pro")) {
+      if (!api.id.includes("codex") && !api.id.includes("gpt-5-pro")) {
         result["reasoningEffort"] = "medium"
       }
 
-      if (model.api.id.endsWith("gpt-5.1") && model.providerID !== "azure") {
+      if (api.id.endsWith("gpt-5.1") && providerModel.providerID !== "azure") {
         result["textVerbosity"] = "low"
       }
 
-      if (model.providerID.startsWith("opencode")) {
-        result["promptCacheKey"] = sessionID
+      if (providerModel.providerID.startsWith("opencode")) {
+        result["promptCacheKey"] = session
         result["include"] = ["reasoning.encrypted_content"]
         result["reasoningSummary"] = "auto"
       }
     }
 
-    // Merge provider-specific options from config
-    if (providerOptions) {
-      return { ...providerOptions, ...result }
-    }
-
-    return result
+    return options ? { ...options, ...result } : result
   }
 
   export function smallOptions(model: Provider.Model) {

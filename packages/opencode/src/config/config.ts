@@ -22,7 +22,11 @@ import { MongoStorage } from "../storage/mongo"
 
 export namespace Config {
     const log = Log.create({ service: "config" })
-    const useMongoDb = MongoStorage.isEnabled()
+
+    // Runtime check instead of module-level caching to support dynamic config
+    function isMongoEnabled(): boolean {
+        return MongoStorage.isEnabled()
+    }
 
     // Custom merge function that concatenates plugin arrays instead of replacing them
     function mergeConfigWithPlugins(target: Info, source: Info): Info {
@@ -39,9 +43,12 @@ export namespace Config {
         const auth = await Auth.all()
         let result = await global()
 
-        // When MongoDB is enabled and OPENCODE_MONGO_SKIP_FILES is not set to "false",
+        // When MongoDB is enabled and OPENCODE_MONGO_INCLUDE_FILES is not set to "true",
         // skip loading filesystem configs - MongoDB is the single source of truth
-        const skipFilesystemConfigs = useMongoDb && process.env.OPENCODE_MONGO_SKIP_FILES !== "false"
+        // Backward compat: also check deprecated OPENCODE_MONGO_SKIP_FILES !== "false"
+        const includeFiles =
+            process.env.OPENCODE_MONGO_INCLUDE_FILES === "true" || process.env.OPENCODE_MONGO_SKIP_FILES === "false"
+        const skipFilesystemConfigs = isMongoEnabled() && !includeFiles
 
         if (!skipFilesystemConfigs) {
             // Override with custom config if provided
@@ -68,11 +75,35 @@ export namespace Config {
         for (const [key, value] of Object.entries(auth)) {
             if (value.type === "wellknown") {
                 process.env[value.key] = value.token
-                const wellknown = (await fetch(`${key}/.well-known/opencode`).then((x) => x.json())) as any
-                result = mergeConfigWithPlugins(
-                    result,
-                    await load(JSON.stringify(wellknown.config ?? {}), process.cwd()),
-                )
+                try {
+                    const controller = new AbortController()
+                    const timeout = setTimeout(() => controller.abort(), 10000)
+                    const response = await fetch(`${key}/.well-known/opencode`, {
+                        signal: controller.signal,
+                    })
+                    clearTimeout(timeout)
+
+                    if (!response.ok) {
+                        log.warn("Failed to fetch well-known config", {
+                            url: key,
+                            status: response.status,
+                        })
+                        continue
+                    }
+
+                    const wellknown = await response.json()
+                    if (wellknown && typeof wellknown === "object" && wellknown.config) {
+                        result = mergeConfigWithPlugins(
+                            result,
+                            await load(JSON.stringify(wellknown.config), process.cwd()),
+                        )
+                    }
+                } catch (err) {
+                    log.warn("Failed to fetch well-known config", {
+                        url: key,
+                        error: err instanceof Error ? err.message : String(err),
+                    })
+                }
             }
         }
 
@@ -307,7 +338,9 @@ export namespace Config {
             dot: true,
             cwd: dir,
         })) {
-            plugins.push(pathToFileURL(item).href)
+            const pluginUrl = pathToFileURL(item).href
+            plugins.push(pluginUrl)
+            log.debug("Found plugin", { path: item })
         }
         return plugins
     }
@@ -865,7 +898,7 @@ export namespace Config {
 
     export const global = lazy(async () => {
         // Load config from MongoDB if enabled
-        if (useMongoDb) {
+        if (isMongoEnabled()) {
             log.info("Loading config from MongoDB")
             await MongoStorage.init().catch(() => {
                 log.warn("MongoDB not yet initialized, using defaults")
@@ -903,7 +936,12 @@ export namespace Config {
                 await Bun.write(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
                 await fs.unlink(path.join(Global.Path.config, "config"))
             })
-            .catch(() => {})
+            .catch((err) => {
+                // ENOENT is expected when no TOML config exists
+                if (err?.code !== "ENOENT" && err?.code !== "ERR_MODULE_NOT_FOUND") {
+                    log.warn("Failed to migrate TOML config", { error: err?.message || err })
+                }
+            })
 
         return result
     })
@@ -1040,7 +1078,7 @@ export namespace Config {
     }
 
     export async function update(config: Info) {
-        if (useMongoDb) {
+        if (isMongoEnabled()) {
             const existing = await MongoStorage.configGet().catch(() => ({}))
             await MongoStorage.configSet(mergeDeep(existing, config))
             await Instance.dispose()

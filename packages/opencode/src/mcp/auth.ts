@@ -3,9 +3,10 @@ import fs from "fs/promises"
 import z from "zod"
 import { Global } from "../global"
 import { MongoStorage } from "../storage/mongo"
+import { Log } from "../util/log"
 
 export namespace McpAuth {
-    const useMongoDb = MongoStorage.isEnabled()
+    const log = Log.create({ service: "mcp-auth" })
 
     export const Tokens = z.object({
         accessToken: z.string(),
@@ -41,6 +42,8 @@ export namespace McpAuth {
                 const parsed = Entry.safeParse(value)
                 if (parsed.success) {
                     acc[key] = parsed.data
+                } else {
+                    log.warn("Invalid MCP auth entry, skipping", { key })
                 }
                 return acc
             },
@@ -49,10 +52,13 @@ export namespace McpAuth {
     }
 
     export async function get(mcpName: string): Promise<Entry | undefined> {
-        if (useMongoDb) {
+        if (MongoStorage.isEnabled()) {
             const data = await MongoStorage.mcpAuthGet(mcpName)
             if (!data) return undefined
             const parsed = Entry.safeParse(data)
+            if (!parsed.success) {
+                log.warn("Invalid MCP auth entry in MongoDB", { mcpName })
+            }
             return parsed.success ? parsed.data : undefined
         }
         const data = await all()
@@ -60,7 +66,7 @@ export namespace McpAuth {
     }
 
     export async function all(): Promise<Record<string, Entry>> {
-        if (useMongoDb) {
+        if (MongoStorage.isEnabled()) {
             const data = await MongoStorage.mcpAuthAll()
             return parseEntries(data as Record<string, unknown>)
         }
@@ -70,47 +76,65 @@ export namespace McpAuth {
     }
 
     export async function set(mcpName: string, entry: Entry): Promise<void> {
-        if (useMongoDb) {
+        if (MongoStorage.isEnabled()) {
             await MongoStorage.mcpAuthSet(mcpName, entry)
             return
         }
         const file = Bun.file(filepath)
         const data = await all()
-        await Bun.write(file, JSON.stringify({ ...data, [mcpName]: entry }, null, 2))
+        const content = JSON.stringify({ ...data, [mcpName]: entry }, null, 2)
+        await Bun.write(file, content)
         await fs.chmod(file.name!, 0o600)
     }
 
     export async function remove(mcpName: string): Promise<void> {
-        if (useMongoDb) {
+        if (MongoStorage.isEnabled()) {
             await MongoStorage.mcpAuthRemove(mcpName)
             return
         }
         const file = Bun.file(filepath)
         const data = await all()
         delete data[mcpName]
-        await Bun.write(file, JSON.stringify(data, null, 2))
+        const content = JSON.stringify(data, null, 2)
+        await Bun.write(file, content)
         await fs.chmod(file.name!, 0o600)
     }
 
     export async function updateTokens(mcpName: string, tokens: Tokens): Promise<void> {
+        if (MongoStorage.isEnabled()) {
+            await MongoStorage.mcpAuthUpdateField(mcpName, "tokens", tokens)
+            return
+        }
         const entry = (await get(mcpName)) ?? {}
         entry.tokens = tokens
         await set(mcpName, entry)
     }
 
     export async function updateClientInfo(mcpName: string, clientInfo: ClientInfo): Promise<void> {
+        if (MongoStorage.isEnabled()) {
+            await MongoStorage.mcpAuthUpdateField(mcpName, "clientInfo", clientInfo)
+            return
+        }
         const entry = (await get(mcpName)) ?? {}
         entry.clientInfo = clientInfo
         await set(mcpName, entry)
     }
 
     export async function updateCodeVerifier(mcpName: string, codeVerifier: string): Promise<void> {
+        if (MongoStorage.isEnabled()) {
+            await MongoStorage.mcpAuthUpdateField(mcpName, "codeVerifier", codeVerifier)
+            return
+        }
         const entry = (await get(mcpName)) ?? {}
         entry.codeVerifier = codeVerifier
         await set(mcpName, entry)
     }
 
     export async function clearCodeVerifier(mcpName: string): Promise<void> {
+        if (MongoStorage.isEnabled()) {
+            await MongoStorage.mcpAuthUnsetField(mcpName, "codeVerifier")
+            return
+        }
         const entry = await get(mcpName)
         if (entry) {
             delete entry.codeVerifier

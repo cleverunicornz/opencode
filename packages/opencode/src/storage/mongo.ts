@@ -49,12 +49,21 @@ export namespace MongoStorage {
         session_diff: "session_diffs",
     }
 
+    /**
+     * Safely parse an integer from env var with fallback
+     */
+    function safeParseInt(value: string | undefined, fallback: number): number {
+        if (!value) return fallback
+        const parsed = parseInt(value, 10)
+        return Number.isNaN(parsed) ? fallback : parsed
+    }
+
     // Connection options from env with defaults
     const CONNECTION_OPTIONS = {
-        serverSelectionTimeoutMS: parseInt(process.env.OPENCODE_MONGO_SERVER_TIMEOUT || "5000"),
-        connectTimeoutMS: parseInt(process.env.OPENCODE_MONGO_CONNECT_TIMEOUT || "10000"),
-        socketTimeoutMS: parseInt(process.env.OPENCODE_MONGO_SOCKET_TIMEOUT || "30000"),
-        maxPoolSize: parseInt(process.env.OPENCODE_MONGO_POOL_SIZE || "10"),
+        serverSelectionTimeoutMS: safeParseInt(process.env.OPENCODE_MONGO_SERVER_TIMEOUT, 5000),
+        connectTimeoutMS: safeParseInt(process.env.OPENCODE_MONGO_CONNECT_TIMEOUT, 10000),
+        socketTimeoutMS: safeParseInt(process.env.OPENCODE_MONGO_SOCKET_TIMEOUT, 30000),
+        maxPoolSize: safeParseInt(process.env.OPENCODE_MONGO_POOL_SIZE, 10),
     }
 
     /**
@@ -155,11 +164,20 @@ export namespace MongoStorage {
         log.info("Running bootstrap migration...")
 
         // Create indexes for efficient querying
-        await db.collection("sessions").createIndex({ projectId: 1 })
-        await db.collection("messages").createIndex({ sessionId: 1 })
-        await db.collection("parts").createIndex({ messageId: 1 })
-        await db.collection("auth").createIndex({ providerId: 1 }, { unique: true })
-        await db.collection("mcp_auth").createIndex({ mcpName: 1 }, { unique: true })
+        const indexOps = [
+            db.collection("sessions").createIndex({ projectId: 1 }),
+            db.collection("messages").createIndex({ sessionId: 1 }),
+            db.collection("parts").createIndex({ messageId: 1 }),
+            db.collection("auth").createIndex({ providerId: 1 }, { unique: true }),
+            db.collection("mcp_auth").createIndex({ mcpName: 1 }, { unique: true }),
+        ]
+
+        const results = await Promise.allSettled(indexOps)
+        for (const [i, result] of results.entries()) {
+            if (result.status === "rejected") {
+                log.warn("Failed to create index", { index: i, error: result.reason?.message || result.reason })
+            }
+        }
 
         // Ensure default config exists with proper data structure
         const configColl = db.collection<ConfigDocument>("config")
@@ -263,6 +281,8 @@ export namespace MongoStorage {
         const fs = await import("fs/promises")
         const path = await import("path")
 
+        let imported = 0
+        let failed = 0
         const glob = new Bun.Glob("**/*.json")
         for await (const file of glob.scan({ cwd: dir, absolute: true })) {
             try {
@@ -271,11 +291,16 @@ export namespace MongoStorage {
                 const keyParts = relativePath.replace(/\.json$/, "").split(path.sep)
                 const key = [type, ...keyParts]
                 await write(key, content)
+                imported++
             } catch (e) {
-                log.warn("Failed to import file", { file, error: e })
+                failed++
+                log.warn("Failed to import file", {
+                    file,
+                    error: e instanceof Error ? e.message : String(e),
+                })
             }
         }
-        log.info(`Imported ${type} data`)
+        log.info(`Imported ${type} data`, { imported, failed })
     }
 
     /**
@@ -450,9 +475,7 @@ export namespace MongoStorage {
         const query = ids.length > 0 ? buildQuery(type, ids) : {}
 
         const docs = await coll.find(query).sort({ _id: 1 }).toArray()
-        const result = docs.map((doc) => extractKey(type, doc))
-        result.sort()
-        return result
+        return docs.map((doc) => extractKey(type, doc))
     }
 
     // ============================================
@@ -553,6 +576,40 @@ export namespace MongoStorage {
         await ensureInit()
         const coll = collection<McpAuthDocument>("mcp_auth")
         await coll.deleteOne({ mcpName })
+    }
+
+    /**
+     * Atomically update a specific field in an MCP auth entry
+     */
+    export async function mcpAuthUpdateField(mcpName: string, field: string, value: unknown): Promise<void> {
+        await ensureInit()
+        const coll = collection<McpAuthDocument>("mcp_auth")
+        await coll.updateOne(
+            { mcpName },
+            {
+                $set: {
+                    mcpName,
+                    [`data.${field}`]: value,
+                    updatedAt: new Date(),
+                },
+            },
+            { upsert: true },
+        )
+    }
+
+    /**
+     * Atomically remove a specific field from an MCP auth entry
+     */
+    export async function mcpAuthUnsetField(mcpName: string, field: string): Promise<void> {
+        await ensureInit()
+        const coll = collection<McpAuthDocument>("mcp_auth")
+        await coll.updateOne(
+            { mcpName },
+            {
+                $unset: { [`data.${field}`]: "" },
+                $set: { updatedAt: new Date() },
+            },
+        )
     }
 
     // ============================================

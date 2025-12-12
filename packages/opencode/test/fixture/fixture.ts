@@ -13,12 +13,22 @@ type TmpDirOptions<T> = {
   init?: (dir: string) => Promise<T>
   dispose?: (dir: string) => Promise<T>
 }
+
+const gitEnv = {
+  GIT_AUTHOR_NAME: "CI",
+  GIT_AUTHOR_EMAIL: "ci@example.com",
+  GIT_COMMITTER_NAME: "CI",
+  GIT_COMMITTER_EMAIL: "ci@example.com",
+}
+
+export { gitEnv }
+
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   const dirpath = sanitizePath(path.join(os.tmpdir(), "opencode-test-" + Math.random().toString(36).slice(2)))
   await fs.mkdir(dirpath, { recursive: true })
   if (options?.git) {
-    await $`git init`.cwd(dirpath).quiet()
-    await $`git commit --allow-empty -m "root commit ${dirpath}"`.cwd(dirpath).quiet()
+    await $`git init`.cwd(dirpath).env(gitEnv).quiet()
+    await $`git commit --allow-empty -m "root commit ${dirpath}"`.cwd(dirpath).env(gitEnv).quiet()
   }
   const extra = await options?.init?.(dirpath)
   const realpath = sanitizePath(await fs.realpath(dirpath))

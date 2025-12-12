@@ -135,8 +135,8 @@ export namespace Storage {
                     JSON.stringify({
                         ...session,
                         summary: {
-                            additions: diffs.reduce((sum: any, x: any) => sum + x.additions, 0),
-                            deletions: diffs.reduce((sum: any, x: any) => sum + x.deletions, 0),
+                            additions: diffs.reduce((sum: number, x: { additions: number }) => sum + x.additions, 0),
+                            deletions: diffs.reduce((sum: number, x: { deletions: number }) => sum + x.deletions, 0),
                         },
                     }),
                 )
@@ -172,12 +172,19 @@ export namespace Storage {
     export async function remove(key: string[]) {
         const s = await state()
         if (s.useMongo) {
-            // Both paths silently ignore missing files for consistency
-            return MongoStorage.remove(key).catch(() => {})
+            // Silently ignore ENOENT (not found) for consistency with filesystem behavior
+            return MongoStorage.remove(key).catch((err) => {
+                if (err?.code !== "ENOENT") {
+                    log.warn("Failed to remove from MongoDB", { key, error: err?.message || err })
+                }
+            })
         }
         const target = path.join(s.dir, ...key) + ".json"
-        return withErrorHandling(async () => {
-            await fs.unlink(target).catch(() => {})
+        // Silently ignore ENOENT for idempotent delete
+        return fs.unlink(target).catch((err) => {
+            if (err?.code !== "ENOENT") {
+                log.warn("Failed to remove file", { target, error: err?.message || err })
+            }
         })
     }
 
@@ -242,7 +249,8 @@ export namespace Storage {
         if (s.useMongo) {
             try {
                 return await MongoStorage.list(prefix)
-            } catch {
+            } catch (err) {
+                log.warn("Failed to list from MongoDB", { prefix, error: err instanceof Error ? err.message : err })
                 return []
             }
         }
@@ -255,7 +263,12 @@ export namespace Storage {
             ).then((results) => results.map((x) => [...prefix, ...x.slice(0, -5).split(path.sep)]))
             result.sort()
             return result
-        } catch {
+        } catch (err) {
+            // ENOENT is expected when directory doesn't exist yet
+            const errnoException = err as NodeJS.ErrnoException
+            if (errnoException?.code !== "ENOENT") {
+                log.warn("Failed to list directory", { prefix, error: errnoException?.message || err })
+            }
             return []
         }
     }
