@@ -1,0 +1,75 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:      # Manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add Upstream
+        run: |
+          git remote add upstream https://github.com/sst/opencode.git
+          git fetch upstream
+
+      - name: Check for Conflicts in Target Files
+        id: conflict-check
+        run: |
+          # Files we care about for merge conflicts
+          TARGET_FILES=(
+            "packages/opencode/src/storage/storage.ts"
+            "packages/opencode/src/auth/index.ts"
+            "packages/opencode/src/mcp/auth.ts"
+            "packages/opencode/src/config/config.ts"
+          )
+
+          # Get list of changed files in upstream
+          CHANGED=$(git diff --name-only dev upstream/dev)
+
+          CONFLICTS=""
+          for file in "${TARGET_FILES[@]}"; do
+            if echo "$CHANGED" | grep -q "$file"; then
+              CONFLICTS="$CONFLICTS $file"
+            fi
+          done
+
+          if [ -n "$CONFLICTS" ]; then
+            echo "conflicts=true" >> $GITHUB_OUTPUT
+            echo "files=$CONFLICTS" >> $GITHUB_OUTPUT
+          else
+            echo "conflicts=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge Upstream (if no conflicts in target files)
+        if: steps.conflict-check.outputs.conflicts == 'false'
+        run: |
+          git merge upstream/dev --no-edit
+          git push origin dev
+
+      - name: Create Issue on Conflict
+        if: steps.conflict-check.outputs.conflicts == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = '${{ steps.conflict-check.outputs.files }}';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Upstream sync: Target files changed',
+              body: `The following target files have changes in upstream that need manual review:\n\n${files.trim().split(' ').map(f => '- \`' + f + '\`').join('\n')}\n\nThese are files we modify for MongoDB shims. Manual merge required.`,
+              labels: ['upstream-sync', 'needs-review']
+            });
