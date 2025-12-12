@@ -39,22 +39,30 @@ export namespace Config {
         const auth = await Auth.all()
         let result = await global()
 
-        // Override with custom config if provided
-        if (Flag.OPENCODE_CONFIG) {
-            result = mergeConfigWithPlugins(result, await loadFile(Flag.OPENCODE_CONFIG))
-            log.debug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
-        }
+        // When MongoDB is enabled and OPENCODE_MONGO_SKIP_FILES is not set to "false",
+        // skip loading filesystem configs - MongoDB is the single source of truth
+        const skipFilesystemConfigs = useMongoDb && process.env.OPENCODE_MONGO_SKIP_FILES !== "false"
 
-        for (const file of ["opencode.jsonc", "opencode.json"]) {
-            const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
-            for (const resolved of found.toReversed()) {
-                result = mergeConfigWithPlugins(result, await loadFile(resolved))
+        if (!skipFilesystemConfigs) {
+            // Override with custom config if provided
+            if (Flag.OPENCODE_CONFIG) {
+                result = mergeConfigWithPlugins(result, await loadFile(Flag.OPENCODE_CONFIG))
+                log.debug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
             }
-        }
 
-        if (Flag.OPENCODE_CONFIG_CONTENT) {
-            result = mergeConfigWithPlugins(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
-            log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
+            for (const file of ["opencode.jsonc", "opencode.json"]) {
+                const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
+                for (const resolved of found.toReversed()) {
+                    result = mergeConfigWithPlugins(result, await loadFile(resolved))
+                }
+            }
+
+            if (Flag.OPENCODE_CONFIG_CONTENT) {
+                result = mergeConfigWithPlugins(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
+                log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
+            }
+        } else {
+            log.info("MongoDB enabled - skipping filesystem config loading")
         }
 
         for (const [key, value] of Object.entries(auth)) {
@@ -92,7 +100,7 @@ export namespace Config {
         for (const dir of directories) {
             await assertValid(dir)
 
-            if (dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR) {
+            if (!skipFilesystemConfigs && (dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR)) {
                 for (const file of ["opencode.jsonc", "opencode.json"]) {
                     log.debug(`loading config from ${path.join(dir, file)}`)
                     result = mergeConfigWithPlugins(result, await loadFile(path.join(dir, file)))
@@ -126,11 +134,6 @@ export namespace Config {
         }
 
         if (!result.username) result.username = os.userInfo().username
-
-        // Handle migration from autoshare to share field
-        if (result.autoshare === true && !result.share) {
-            result.share = "auto"
-        }
 
         // Handle migration from autoshare to share field
         if (result.autoshare === true && !result.share) {

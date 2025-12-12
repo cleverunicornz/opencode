@@ -6,6 +6,7 @@ import { MongoStorage } from "../storage/mongo"
 
 export namespace Auth {
     const useMongoDb = MongoStorage.isEnabled()
+
     export const Oauth = z
         .object({
             type: z.literal("oauth"),
@@ -36,7 +37,23 @@ export namespace Auth {
 
     const filepath = path.join(Global.Path.data, "auth.json")
 
-    export async function get(providerID: string) {
+    /**
+     * Parse and validate auth entries from raw data
+     */
+    function parseAuthEntries(data: Record<string, unknown>): Record<string, Info> {
+        return Object.entries(data).reduce(
+            (acc, [key, value]) => {
+                const parsed = Info.safeParse(value)
+                if (parsed.success) {
+                    acc[key] = parsed.data
+                }
+                return acc
+            },
+            {} as Record<string, Info>,
+        )
+    }
+
+    export async function get(providerID: string): Promise<Info | undefined> {
         if (useMongoDb) {
             const data = await MongoStorage.authGet(providerID)
             if (!data) return undefined
@@ -50,30 +67,14 @@ export namespace Auth {
     export async function all(): Promise<Record<string, Info>> {
         if (useMongoDb) {
             const data = await MongoStorage.authAll()
-            return Object.entries(data).reduce(
-                (acc, [key, value]) => {
-                    const parsed = Info.safeParse(value)
-                    if (!parsed.success) return acc
-                    acc[key] = parsed.data
-                    return acc
-                },
-                {} as Record<string, Info>,
-            )
+            return parseAuthEntries(data as Record<string, unknown>)
         }
         const file = Bun.file(filepath)
         const data = await file.json().catch(() => ({}) as Record<string, unknown>)
-        return Object.entries(data).reduce(
-            (acc, [key, value]) => {
-                const parsed = Info.safeParse(value)
-                if (!parsed.success) return acc
-                acc[key] = parsed.data
-                return acc
-            },
-            {} as Record<string, Info>,
-        )
+        return parseAuthEntries(data)
     }
 
-    export async function set(key: string, info: Info) {
+    export async function set(key: string, info: Info): Promise<void> {
         if (useMongoDb) {
             await MongoStorage.authSet(key, info)
             return
@@ -84,7 +85,7 @@ export namespace Auth {
         await fs.chmod(file.name!, 0o600)
     }
 
-    export async function remove(key: string) {
+    export async function remove(key: string): Promise<void> {
         if (useMongoDb) {
             await MongoStorage.authRemove(key)
             return

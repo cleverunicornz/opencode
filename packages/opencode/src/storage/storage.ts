@@ -27,7 +27,7 @@ export namespace Storage {
     const MIGRATIONS: Migration[] = [
         async (dir) => {
             const project = path.resolve(dir, "../project")
-            if (!fs.exists(project)) return
+            if (!(await fs.exists(project))) return
             for await (const projectDir of new Bun.Glob("*").scan({
                 cwd: project,
                 onlyFiles: false,
@@ -172,7 +172,8 @@ export namespace Storage {
     export async function remove(key: string[]) {
         const s = await state()
         if (s.useMongo) {
-            return MongoStorage.remove(key)
+            // Both paths silently ignore missing files for consistency
+            return MongoStorage.remove(key).catch(() => {})
         }
         const target = path.join(s.dir, ...key) + ".json"
         return withErrorHandling(async () => {

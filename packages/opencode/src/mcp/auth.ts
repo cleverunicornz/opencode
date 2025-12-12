@@ -6,6 +6,7 @@ import { MongoStorage } from "../storage/mongo"
 
 export namespace McpAuth {
     const useMongoDb = MongoStorage.isEnabled()
+
     export const Tokens = z.object({
         accessToken: z.string(),
         refreshToken: z.string().optional(),
@@ -31,6 +32,22 @@ export namespace McpAuth {
 
     const filepath = path.join(Global.Path.data, "mcp-auth.json")
 
+    /**
+     * Parse and validate MCP auth entries from raw data
+     */
+    function parseEntries(data: Record<string, unknown>): Record<string, Entry> {
+        return Object.entries(data).reduce(
+            (acc, [key, value]) => {
+                const parsed = Entry.safeParse(value)
+                if (parsed.success) {
+                    acc[key] = parsed.data
+                }
+                return acc
+            },
+            {} as Record<string, Entry>,
+        )
+    }
+
     export async function get(mcpName: string): Promise<Entry | undefined> {
         if (useMongoDb) {
             const data = await MongoStorage.mcpAuthGet(mcpName)
@@ -45,17 +62,11 @@ export namespace McpAuth {
     export async function all(): Promise<Record<string, Entry>> {
         if (useMongoDb) {
             const data = await MongoStorage.mcpAuthAll()
-            return Object.entries(data).reduce(
-                (acc, [key, value]) => {
-                    const parsed = Entry.safeParse(value)
-                    if (parsed.success) acc[key] = parsed.data
-                    return acc
-                },
-                {} as Record<string, Entry>,
-            )
+            return parseEntries(data as Record<string, unknown>)
         }
         const file = Bun.file(filepath)
-        return file.json().catch(() => ({}))
+        const data = await file.json().catch(() => ({}))
+        return parseEntries(data)
     }
 
     export async function set(mcpName: string, entry: Entry): Promise<void> {
