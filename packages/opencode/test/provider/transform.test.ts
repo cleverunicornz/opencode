@@ -12,9 +12,10 @@ describe("ProviderTransform.options", () => {
       },
     }
     const result = ProviderTransform.options(
-      "anthropic",
-      "claude-opus-4-5",
-      "@ai-sdk/anthropic",
+      {
+        providerID: "anthropic",
+        api: { id: "claude-opus-4-5", npm: "@ai-sdk/anthropic" },
+      } as any,
       "session-123",
       providerOptions,
     )
@@ -28,12 +29,25 @@ describe("ProviderTransform.options", () => {
     const providerOptions = {
       promptCacheKey: "user-provided-key",
     }
-    const result = ProviderTransform.options("openai", "gpt-4", "@ai-sdk/openai", "session-123", providerOptions)
+    const result = ProviderTransform.options(
+      {
+        providerID: "openai",
+        api: { id: "gpt-4", npm: "@ai-sdk/openai" },
+      } as any,
+      "session-123",
+      providerOptions,
+    )
     expect(result.promptCacheKey).toBe("session-123")
   })
 
   test("returns only computed options when providerOptions is undefined", () => {
-    const result = ProviderTransform.options("openai", "gpt-4", "@ai-sdk/openai", "session-123")
+    const result = ProviderTransform.options(
+      {
+        providerID: "openai",
+        api: { id: "gpt-4", npm: "@ai-sdk/openai" },
+      } as any,
+      "session-123",
+    )
     expect(result.promptCacheKey).toBe("session-123")
   })
 })
