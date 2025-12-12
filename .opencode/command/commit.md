@@ -1,5 +1,6 @@
 ---
-description: Git commit and push
+description: git commit and push
+model: opencode/glm-4.6
 ---
 
 commit and push
